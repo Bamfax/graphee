@@ -1,0 +1,144 @@
+{
+    "meta": {
+        "name": "graphee",
+        "displayName": "GRAPH-E",
+        "version": "0.0.1",
+        "restRoot": "graphee",
+        "apiVersion": "3.2.0",
+        "schemaVersion": "0.0.3"
+    },
+    "pages": {
+        "configuration": {
+            "title": "Configuration",
+            "description": "Setup GRAPH-E",
+            "tabs": [
+                {
+                    "name": "uris",
+                    "title": "Neo4j URIs",
+                    "table": {
+                        "header": [
+                            {
+                                "field": "name",
+                                "label": "URI ID"
+                            },
+                            {
+                                "field": "neo4j_uri",
+                                "label": "URI"
+                            }
+                        ],
+                        "actions": [
+                            "edit",
+                            "delete",
+                            "clone"
+                        ]
+                    },
+                    "entity": [
+                        {
+                            "field": "name",
+                            "label": "URI ID",
+                            "type": "text",
+                            "required": true,
+                            "help": "Unique id for this URI, used as reference in the custom commands of this Splunk app via option \"uri=<URI ID>\".",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 50,
+                                    "errorMsg": "Length of URI ID should be between 1 and 50"
+                                }
+                            ]
+                        },
+                        {
+                            "field": "neo4j_uri",
+                            "label": "URI",
+                            "type": "text",
+                            "required": true,
+                            "help": "URI string to which Neo4j port to connect to. Needs to be a bolt port, e.g. \"bolt+ssc://localhost:7687\".",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500,
+                                    "errorMsg": "Length of Account name should be between 1 and 500"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "accounts",
+                    "title": "Neo4j Accounts",
+                    "table": {
+                        "header": [
+                            {
+                                "field": "name",
+                                "label": "Account ID"
+                            },
+                            {
+                                "field": "account_username",
+                                "label": "Account Username"
+                            },
+                            {
+                                "field": "account_password",
+                                "label": "Account Password"
+                            }
+                        ],
+                        "actions": [
+                            "edit",
+                            "delete",
+                            "clone"
+                        ]
+                    },
+                    "entity": [
+                        {
+                            "field": "name",
+                            "label": "Account ID",
+                            "type": "text",
+                            "required": true,
+                            "help": "Unique ID for this account, used as reference in the custom commands of this Splunk app via option \"account=<Account ID>\".",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 50,
+                                    "errorMsg": "Length of Account ID should be between 1 and 50"
+                                }
+                            ]
+                        },
+                        {
+                            "field": "account_username",
+                            "label": "Account Username",
+                            "type": "text",
+                            "required": true,
+                            "help": "Username of the account, which is used to authenticate against Neo4j DMBS",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 50,
+                                    "errorMsg": "Length of Account name should be between 1 and 50"
+                                }
+                            ]
+                        },
+                        {
+                            "field": "account_password",
+                            "label": "Account Password",
+                            "type": "text",
+                            "encrypted": true,
+                            "required": true,
+                            "help": "",
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 8192,
+                                    "errorMsg": "Length of token should be between 1 and 8192"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

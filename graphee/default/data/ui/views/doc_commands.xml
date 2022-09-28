@@ -1,0 +1,134 @@
+<dashboard version="1.1">
+  <label>Commands</label>
+  <row>
+    <panel>
+      <html>
+        <p>This app makes the following custom commands available:</p>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <html>
+      <h2>
+        <b>Creategraph</b>
+      </h2>
+      <p>| creategraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt; mode=&lt;create|merge&gt;</p>
+      <p>Type: Reporting Command</p>
+      <p>Use: Creates a graph on the Neo4j instance by transforming the input events, transforming and sending them to the graph db. Takes a set of multiple fields as input to create the nodes and relationsships as a graph.</p>
+      <p>Further info: This command does not yet support:</p>
+      <ul>
+        <li>Multiple labels on a node.</li>
+        <li>Multivalue inputs on other fields.</li>
+      </ul>
+      <h3>
+        <b>Options:</b>
+      </h3>
+      <ul>
+        <li>
+          <b>mode:</b>
+        </li>
+        <p>Syntax: mode=&lt;"MERGE"|"CREATE"&gt;</p>
+        <p>Description: Cypher command with which the nodes and/or relationsships are being created. Choose between "merge" and "create".</p>
+        <p>Default is "merge".</p>
+      </ul>
+    </html>
+    <html>
+      <h2>
+        <b>Creategraphjson</b>
+      </h2>
+      <p>| creategraphjson uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt; mode=&lt;create|merge&gt;</p>
+      <p>Type: Reporting Command</p>
+      <p>Use: Creates a graph on the Neo4j instance by transforming the input events, transforming and sending them to the graph db. Takes a set of json objects as input to create the nodes and relationsships as a graph. The json object needs to come with all needed fields.</p>
+      <h3>
+        <b>Options:</b>
+      </h3>
+      <ul>
+        <li>
+          <b>mode:</b>
+        </li>
+        <p>Syntax: mode=&lt;"MERGE"|"CREATE"&gt;</p>
+        <p>Description: Cypher command with which the nodes and/or relationsships are being created. Choose between "merge" and "create".</p>
+        <p>Default is "merge".</p>
+      </ul>
+    </html>
+  </row>
+  <row>
+    <html>
+      <h2>
+        <b>Cypher</b>
+      </h2>
+      <p>| cypher uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt; mode=&lt;read|write&gt; query=&lt;"cypher_querysstring"&gt;</p>
+      <p>Type: Generating Command</p>
+      <p>Use: Runs a user specified command on the Neo4j instance.</p>
+      <h3>
+        <b>Options:</b>
+      </h3>
+      <ul>
+        <li>
+          <b>mode:</b>
+        </li>
+        <p>Syntax: mode=&lt;"read"|"write"&gt;</p>
+        <p>Description: Mode for the cypher transaction and command, if it intends to make changes. Choose between "read" and "write".</p>
+        <p>Default is "read".</p>
+        <li>
+          <b>query:</b>
+        </li>
+        <p>Syntax: query=&lt;"cypher_querysstring"&gt;</p>
+        <p>Description: Cypher querystring to be executed on the graph db.</p>
+      </ul>
+    </html>
+    <html>
+      <h2>
+        <b>Getfullgraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt;</b>
+      </h2>
+      <p>| getfullgraph</p>
+      <p>Type: Generating Command</p>
+      <p>Use: Pulls all nodes and relationships from the graph db.</p>
+      <p>Further info: This command supports multiple labels.</p>
+      <h3>
+        <b>Options:</b>
+      </h3>
+      <ul>
+        <li>
+          <b>none</b>
+        </li>
+      </ul>
+    </html>
+  </row>
+  <row>
+    <html>
+      <h1>Common Options available on all commands</h1>
+      <ul>
+        <li>
+          <b>uri:</b>
+        </li>
+        <p>Syntax: uri=&lt;URI_ID&gt;</p>
+        <p>Description: URI_ID: ID of the Neo4j URI entry as specified in configuration page under "Neo4j URI".</p>
+        <li>
+          <b>account:</b>
+        </li>
+        <p>Syntax: account=&lt;Account_ID&gt;</p>
+        <p>Description: Account_ID: ID of the Neo4j Account entry as specified in configuration page under "Neo4j Accounts".</p>
+        <li>
+          <b>noact:</b>
+        </li>
+        <p>Syntax: noact=&lt;"true"|"false"&gt;</p>
+        <p>Description: No action. Easy flag to temporarily disable the custom command. </p>
+      </ul>
+    </html>
+  </row>
+  <row>
+    <html>
+      <h1>A word on creating graphs</h1>
+      <ul>
+        <li>Please note the difference in meaning between node_ref and node_id. The former is the required field for referencing nodes in the input dataset when creating graphs. It has no other function as uniquely referencing nodes in the building the cypher commands that create the graph. It is not persistent and vanishes after the graph was created. The latter is returned by graph queries: It is the ID neo4j assigns to stored nodes and rels.</li>
+        <li>Variables like node_ref are fed to Neo4j and need to follow Neo4j conventions. node_ref therefore needs to start with an alphabetic char. See <a href="https://neo4j.com/docs/cypher-manual/current/syntax/naming/" target="_blank">Cypher naming conventions</a> for more info.</li>
+        <li>These fields need to be present for creating nodes: obj_type="node", node_ref, node_label. Props are optional. They need to be prefixed with "prop:", the remainder is used as propname in neo4j.</li>
+        <li>These fields need to be present for creating rels: obj_type="rel", rel_type, rel_dst_node [as in node_ref], rel_src_node [as in node_ref]. Props are optional. They need to be prefixed with "prop:", the remainder is used as propname in neo4j.</li>
+        <li>Ensure that nodes are created before rels (by sorting nodes to the top). The creategraph commands only succeed if the rel_src_node and rel_dst_node are already present on rel creation.</li>
+        <li>|creategraphjson needs the input objs to be delivered in the field json_obj.</li>
+        <li>Speed of the commands are not in focus yet. Expect creation of larger graphs to take a while. You may want to adjust the timeout in commands.conf.</li>
+      </ul>
+    </html>
+  </row>
+</dashboard>

@@ -1,0 +1,3 @@
+neo4j==5.0.1
+splunk-sdk==1.7.2
+splunktaucclib==6.0.6

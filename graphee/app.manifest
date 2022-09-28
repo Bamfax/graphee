@@ -1,0 +1,23 @@
+{
+    "info": {
+        "author": [
+            {
+                "name": "Oliver Kollenberg"
+            }
+        ],
+        "description": "GRAPH-E - A Neo4j connector for Splunk.",
+        "id": {
+            "name": "graphee",
+            "version": "0.0.1"
+        },
+        "title": "GRAPH-E"
+    },
+    "schemaVersion": "2.0.0",
+    "supportedDeployments": [
+        "_standalone",
+        "_distributed"
+    ],
+    "targetWorkloads": [
+        "_search_heads"
+    ]
+}

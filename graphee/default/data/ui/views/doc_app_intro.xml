@@ -1,0 +1,48 @@
+<dashboard version="1.1">
+  <label>Intro</label>
+  <row>
+    <html>
+      <h1>Disclaimer</h1>
+      <p>This app comes without any warranty. It is currently at an early development stage. Check the code before you run it. Use at your own risk.</p>
+    </html>
+  </row>
+  <row>
+    <html>
+      <h1>General Information</h1>
+      <p>Please refer to <a href="https://github.com/Bamfax/graphee">GRAPH-E on Github</a> for further information.</p>
+    </html>
+  </row>
+  <row>
+    <panel>
+      <html>
+        <style>
+             p,ol {
+             // font-size:14pt;
+             }
+        </style>
+        <h1>Setup</h1>
+        <p>Configure everything on the <a href="configuration" target="_blank">configuration page</a> to get this app ready.</p>
+        <ol>
+          <li>Point the app towards your Neo4j instance(s) via the configuration page "Neo4j URIs". You may want to use "bolt+ssc://" as URI scheme if your Neo4j instance uses self-signed certificates. See <a href="https://neo4j.com/docs/bolt/current/driver-api/#uri-schemes" target="_blank">Neo4j URI schemes</a> for further information.</li>
+          <li>Enter your Neo4j Accounts to login to your configured Neo4j instances via the configuration page "Neo4j Accounts". The default account name on Neo4j Desktop is "neo4j".</li>
+          <li>You can configure multiple URIs and Accounts. Each custom commands allows to specify which URI and account to use.</li>
+        </ol>
+      </html>
+    </panel>
+  </row>
+
+  <row>
+    <html>
+      <h1>References and Kudos</h1>
+      <p>Tbd</p>
+    </html>
+  </row>
+
+  <row>
+    <html>
+      <h1>Related apps</h1>
+      <p>Tbd</p>
+    </html>
+  </row>
+
+</dashboard>

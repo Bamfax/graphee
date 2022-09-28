@@ -1,0 +1,13 @@
+<nav search_view="search">
+  <view name="doc_app_intro" default='true' />
+  <collection label="Documentation">
+    <view name="doc_commands"/>
+    <view name="doc_example_creategraph"/>
+    <view name="doc_example_creategraphjson"/>
+    <view name="doc_example_cypher"/>
+    <view name="doc_example_getfullgraph"/>
+    <view name="doc_challenges_and_solutions"/>
+  </collection>
+  <view name="configuration" />
+  <view name="search" />
+</nav>

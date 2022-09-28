@@ -1,0 +1,17 @@
+<form script="searchcontrolsevents.js" stylesheet="searchcontrolsevents.css" theme="light" version="1.1">
+  <label>Example: cypher</label>
+  <row>
+    <panel>
+      <html>
+        <h1>1. Execute |cypher to run a cypher command on your Neo4j instance.</h1>
+        <p>Use one of following commands to try it out, once you configured this app, replacing the parameters for uri and account:</p>
+        <p>Escape double quotes in the cypher_querysstring.</p>
+        <pre>
+<code>| cypher uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f query="match (n) return ID(n), labels(n), properties(n)"
+| cypher uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f query="CALL db.schema.visualization()"
+| cypher uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f query="CALL db.labels()"</code>
+        </pre>
+      </html>
+    </panel>
+  </row>
+</form>

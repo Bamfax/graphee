@@ -1,0 +1,16 @@
+"obj_type","node_ref","node_label","rel_type","rel_src_node","rel_dst_node","prop:born","prop:name","prop:released","prop:roles","prop:tagline","prop:title"
+node,Carrie,Person,,,,1967,"Carrie-Anne Moss",,,,
+node,Hugo,Person,,,,1960,"Hugo Weaving",,,,
+node,Joel,Person,,,,1952,"Joel Silver",,,,
+node,Keanu,Person,,,,1964,"Keanu Reeves",,,,
+node,Lana,Person,,,,1965,"Lana Wachowski",,,,
+node,Laurence,Person,,,,1961,"Laurence Fishburne",,,,
+node,Lilly,Person,,,,1967,"Lilly Wachowski",,,,
+node,TheMatrix,Movie,,,,,,1999,,"Welcome to the Real World","The Matrix"
+rel,,,"ACTED_IN",Keanu,TheMatrix,,,,"[""Neo""]",,
+rel,,,"ACTED_IN",Carrie,TheMatrix,,,,"[""Trinity""]",,
+rel,,,"ACTED_IN",Laurence,TheMatrix,,,,"[""Morpheus""]",,
+rel,,,"ACTED_IN",Hugo,TheMatrix,,,,"[""Agent Smith""]",,
+rel,,,DIRECTED,Lilly,TheMatrix,,,,,,
+rel,,,DIRECTED,Lana,TheMatrix,,,,,,
+rel,,,PRODUCED,Joel,TheMatrix,,,,,,

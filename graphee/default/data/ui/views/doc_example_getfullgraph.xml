@@ -1,0 +1,16 @@
+<form script="searchcontrolsevents.js" stylesheet="searchcontrolsevents.css" theme="light" version="1.1">
+  <label>Example: getfullgraph</label>
+  <row>
+    <panel>
+      <html>
+        <h1>1. Execute |getfullgraph to pull the full graph from your Neo4j instance.</h1>
+        <p>Use the following SPL to try it out, once you configured this app, replacing the parameters for uri and account:</p>
+        <pre>
+<code>| getfullgraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f
+| table obj_type, node_ref, node_id, node_labels, rel_id, rel_type, rel_src_node, rel_dst_node, prop:*
+| sort 0 obj_type, -node_label, rel_type</code>
+        </pre>
+      </html>
+    </panel>
+  </row>
+</form>
