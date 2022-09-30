@@ -50,17 +50,6 @@ class creategraphjson(ReportingCommand):
         self.logger.debug( 'prepare() done.' )
     #------------------   def prepare(): end               -----------------#
     
-    #------------------   def propdicttostr(): start       -----------------#
-    def propdicttostr( self, propdict: dict ):
-        propstr = ''
-        if len(propdict) >= 1:
-            propstrlist = []
-            for key, value in propdict.items():
-                propstrlist.append( '{0}: \'{1}\''.format(key, value) )
-            propstr = '{ ' + ', '.join(propstrlist) + ' }'
-        return propstr
-    #------------------   def propdicttostr(): end         -----------------#
-
     #------------------   def build_paramsstr(): start     -----------------#
     def build_paramsstr( self, props: dict ):
         if props == None:
@@ -68,7 +57,8 @@ class creategraphjson(ReportingCommand):
 
         propslist = []
         for pkey, pval in props.items():
-            propstr = '{0}: \'{1}\''.format( str(pkey), str(pval) )
+            val_escaped = str(pval).replace('\\', '\\\\').replace(r'"', r'\"').replace(r"'", r'\'')
+            propstr = '{0}: \'{1}\''.format( str(pkey), val_escaped )
             propslist.append(propstr)
         unwrapped_propsstr = ', '.join(propslist)
         outstring = '{{ {0} }}'.format( unwrapped_propsstr )
@@ -77,11 +67,6 @@ class creategraphjson(ReportingCommand):
 
     #------------------   def create_node(): start         -----------------#
     def create_node( self, tx, id: str, labels: list, props :dict ):
-        #labelsstr = ':'.join([labels])
-        #wrapped_props = { 'wrapped_props': props }
-        #query = "CREATE ({0}:{1} $wrapped_props) RETURN ID({0})".format(id, labelsstr)
-        #result = tx.run( query, wrapped_props)
-
         labelsstr = ':'.join([labels])
         propsstr = self.build_paramsstr(props)
         query = "{0} ({1}:{2} {3}) RETURN ID({1})".format( self.create_mode, id, labelsstr, propsstr )
@@ -94,7 +79,7 @@ class creategraphjson(ReportingCommand):
             return nodes_id[0]
         else:
             errormsg = ( 'ERROR: In create_node(): Created one node, but more than one node was returned.' )
-            self.error_exit( sys.exc_info(), errormsg )
+            #self.error_exit( sys.exc_info(), errormsg )
     #------------------   def create_node(): end           -----------------#
 
     #------------------   def create_rel(): start          -----------------#
@@ -132,21 +117,21 @@ class creategraphjson(ReportingCommand):
         with driver.session() as session:
             if  len(objsToCreate) >= 1:
                 for json_str in objsToCreate:
-                    json_obj = json.loads(json_str)
-                    obj_type = json_obj['obj_type']
+                    pyobj = json.loads( json_str )
+                    obj_type = pyobj.get( 'obj_type' )
                     if obj_type == 'node':
-                        node_ref = json_obj.get('node_ref')
-                        node_label = json_obj.get('node_label')
-                        node_props = json.loads(json_obj['props']) if json_obj.get('props') else None
-                        node_identity = session.write_transaction( self.create_node, node_ref, node_label, node_props )
+                        node_ref = pyobj.get( 'node_ref' )
+                        node_label = pyobj.get( 'node_label' )
+                        node_props = pyobj.get( 'props' )
+                        node_identity = session.execute_write( self.create_node, node_ref, node_label, node_props )
                         self.nodesToRef[ node_ref ] = node_identity
                     elif obj_type == 'rel':
-                        rel_type = json_obj.get('rel_type')
-                        rel_src_node = json_obj.get('rel_src_node')
-                        rel_dst_node = json_obj.get('rel_dst_node')
-                        rel_props = json.loads(json_obj['props']) if json_obj.get('props') else None
-                        rel_identity = session.write_transaction( self.create_rel, rel_src_node, rel_dst_node, rel_type, rel_props )
-
+                        rel_type = pyobj.get('rel_type')
+                        rel_src_node = pyobj.get('rel_src_node')
+                        rel_dst_node = pyobj.get('rel_dst_node')
+                        rel_props = pyobj.get( 'props' )
+                        rel_identity = session.execute_write( self.create_rel, rel_src_node, rel_dst_node, rel_type, rel_props )
+                        
         self.logger.info( 'graphcreator: done.' )
     #------------------   def graphcreator(): end         -----------------#
 

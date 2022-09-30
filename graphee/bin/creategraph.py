@@ -152,7 +152,7 @@ class creategraph(ReportingCommand):
                         if not rel_propkey_capture == None and string_hascontent(value):
                             relprops[ rel_propkey_capture.group(1) ] = value
 
-                    rel_id = session.write_transaction( self.create_rel, relToCreate['rel_src_node'], relToCreate['rel_dst_node'], relToCreate['rel_type'], relprops )
+                    rel_id = session.execute_write( self.create_rel, relToCreate['rel_src_node'], relToCreate['rel_dst_node'], relToCreate['rel_type'], relprops )
 
         self.logger.info( 'graphcreator: done.' )
     #------------------   def graphcreator(): end         -----------------#

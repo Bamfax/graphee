@@ -91,8 +91,8 @@ class getgraphall(GeneratingCommand):
 
         results = list()
         with driver.session() as session:
-            results = session.read_transaction( self.querynodes )
-            results.extend( session.read_transaction( self.queryrels ) )
+            results = session.execute_read( self.querynodes )
+            results.extend( session.execute_read( self.queryrels ) )
 
         return results
 
