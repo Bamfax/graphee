@@ -79,7 +79,7 @@ class creategraphjson(ReportingCommand):
             return nodes_id[0]
         else:
             errormsg = ( 'ERROR: In create_node(): Created one node, but more than one node was returned.' )
-            #self.error_exit( sys.exc_info(), errormsg )
+            self.error_exit( sys.exc_info(), errormsg )
     #------------------   def create_node(): end           -----------------#
 
     #------------------   def create_rel(): start          -----------------#
