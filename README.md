@@ -3,19 +3,11 @@ A Neo4j(r) connector for Splunk(r) (using Cypher)
 
 Persist your Splunk data into Neo4j graphs, query your Neo4j data from Splunk and execute custom cypher commands from Splunk SPL. All work on Neo4j is done via Cypher using the Neo4j Python driver.
 <br/><br/>
-This app started out as a freetime project so I could learn Python, Neo4j and to get Splunk more connected to the Graph side of life. It is currently a playground which aims to find a good workflow for integrating Splunk and Neo4j. Therefore the codebase will still change a lot in the potential future life of this app. It may evolve into a more general Splunk to Cypher connector (connecting different Graph DBs), it may also try to help out even more with graph topics in Splunk. For more graph things be sure to check out the great apps mentioned under "More Splunk Graph Apps" below.
+This app started out as a freetime project so I could learn Python, Neo4j and to get Splunk more connected to the Graph side of life. It is currently a playground which aims to find a good workflow for integrating Splunk and Neo4j. Therefore the codebase will still change a lot in the potential future of this app. It may evolve into a more general Splunk to Cypher connector (connecting different Graph DBs), it may also try to help out even more with graph topics in Splunk. For more graph functionality in Splunk be sure to check out the great apps mentioned under "More Splunk Graph Apps" below.
 <br/><br/>
-Disclaimer:This app comes without any warranty. Check the code before you use it. Use at your own risk.
+Disclaimer: This app comes is currently in an early development stage. It is recommended to check the code beforehand and to run it in a dev environment first.
 
 All trademarks are property of their respective owners.
-
-<br/><br/>
-<br/><br/>
-<br/><br/>
-<br/><br/>
-
-Why the name? Because we need a Graph helper out there.
-- After 700 years of doing what he was built for - he'll discover what he's meant for.
 
 <br/><br/>
 
@@ -27,15 +19,15 @@ Be sure to check these Splunk Apps out, as they bring even more Graph life into 
     - Awesome, large scale, GPU-accelerated Graph Visualization
     - Also includes NetworkX bindings (bundled in Slunk PSC)
     - Based upon the awesome underlying library https://github.com/vasturiano/3d-force-graph
-- Graphviz:
-    - https://splunkbase.splunk.com/app/4346
-    - https://github.com/ThomasDancoisne/SA-Graphviz
-    - Very customizable and interactable Graph Visualization
 - Python for Scientific Computing (PSC)
     - https://github.com/splunk/Splunk-python-for-scientific-computing
     - Linux 64-bit: https://splunkbase.splunk.com/app/2882/
     - Windows 64-bit: https://splunkbase.splunk.com/app/2883/
     - Contains NetworkX library and allows binding to it (via interface API)
+- Graphviz:
+    - https://splunkbase.splunk.com/app/4346
+    - https://github.com/ThomasDancoisne/SA-Graphviz
+    - Very customizable and interactable Graph Visualization
 
 <br/><br/>
 
@@ -194,3 +186,33 @@ As of 02-10-2022, the following software is included in this app:
 
 ### sockshandler.py
 - Part of PySocks
+
+<br/><br/>
+
+## Further content
+This app also comes with the following content, which is are was based upon independent third-party content:
+
+### Lookup File: graphee_demo_concepts_firewall_traffic.csv
+- Copy of "firewall_traffic.csv" from Splunk Machine Learning Toolkit
+- https://splunkbase.splunk.com/app/2890
+- License: Free to use (see /Splunk_ML_Toolkit/licenses/lookups/firewall_traffic.txt)
+
+### Lookup File: movies_short_splunk.csv and movies_full_splunk.csv 
+- Derivate of the Neo4j Graph Expamples: Movies
+- https://github.com/neo4j-graph-examples/movies/tree/main/data
+
+### Appserver Files
+- Derivate of the appserver js files from the 3D Graph Network Topology Visualization Splunk App
+- https://github.com/splunk/splunk-3D-graph-network-topology-viz
+- License: Apache Software License (Apache-2.0)
+
+<br/><br/>
+
+## Kudos
+Many thanks go out the the whole Splunk team. You are awesome!
+Special thanks to the whole Splunk community. We would not be here without you. Kudos!
+
+<br/><br/>
+
+**GRAPH-E:**
+The newest sensation in waste allocation!

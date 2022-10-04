@@ -102,9 +102,9 @@
         <h1>3. Execute |creategraphjson to create the graph on the Neo4j instance using json_obj</h1>
         <p>Append the following command to the SPL above ("Search results transformed"). You need to configured this app before and then provide the parameters for uri and account to the custom command:</p>
         <pre>
-<code>| creategraphjson uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f mode="merge"</code>
+<code>| creategraphjson uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; inputfield=jsonobj propsprefix="p_" noact=f mode="merge"</code>
         </pre>
       </html>
     </panel>
   </row>
-</form> 
+</form>

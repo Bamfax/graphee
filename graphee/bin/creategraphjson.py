@@ -16,13 +16,13 @@ class creategraphjson(ReportingCommand):
         doc='''
         **Syntax:** **uri=***<URI_ID>*
         **Description:** URI_ID: ID of the Neo4j URI entry as specified in configuration page under "Neo4j URI" ''',
-        require=True, validate=validators.Fieldname() )
+        require=True )
 
     account = Option(
         doc='''
         **Syntax:** **account=***<Account_ID>*
         **Description:** Account_ID: ID of the Neo4j Account entry as specified in configuration page under "Neo4j Accounts" ''',
-        require=True, validate=validators.Fieldname() )
+        require=True )
 
     noact = Option(
         doc='''
@@ -36,6 +36,18 @@ class creategraphjson(ReportingCommand):
         **Description:** Cypher command with which the nodes and/or relationsships are being created. Choose between \"merge\" and \"create\". Default is \"merge\" ''',
         require=False, validate=validators.Set('merge', 'create'), default='merge' )
 
+    inputfield = Option(
+        doc='''
+        **Syntax:** **inputfield=***<inputfield>*
+        **Description:** Name of the field which is taken as inputfield. Default is \"json_obj\". ''',
+        require=False, validate=validators.Fieldname(), default='json_obj' )
+
+    propsprefix = Option(
+        doc='''
+        **Syntax:** **propsprefix=***<properties_prefix>*
+        **Description:** Selector for the properties fields. Choose which fields are taken/read from the inputfield by prepending their names with this prefix. This prefix is then removed from the fieldname in the graph. Default is \"p_\". ''',
+        require=False, default='p_' )
+
     #------------------   def prepare(): start             -----------------#
     def prepare(self):
         """
@@ -46,6 +58,9 @@ class creategraphjson(ReportingCommand):
  
         self.app_id, self.conf_uris_page, self.conf_accounts_page, self.neo4j_uri, self.neo4j_accoount, self.noact = self.sharedprepare()
         self.create_mode = str(self.mode).upper()
+        self.input_field = self.inputfield
+        self.prop_prefix = self.propsprefix
+        self.prop_prefix_len = len(self.propsprefix)
 
         self.logger.debug( 'prepare() done.' )
     #------------------   def prepare(): end               -----------------#
@@ -110,7 +125,7 @@ class creategraphjson(ReportingCommand):
 
     #------------------   def graphcreator(): start       -----------------#
     def graphcreator( self, nodesAndRels: list ):
-        objsToCreate = [record['json_obj'] for record in nodesAndRels if record['json_obj']]
+        objsToCreate = [record[self.input_field] for record in nodesAndRels if record[self.input_field]]
         self.nodesToRef = {}
 
         driver = GraphDatabase.driver( self.neo4j_uri['uri'], auth = ( self.neo4j_accoount['username'], self.neo4j_accoount['password' ]) )
@@ -122,14 +137,16 @@ class creategraphjson(ReportingCommand):
                     if obj_type == 'node':
                         node_ref = pyobj.get( 'node_ref' )
                         node_label = pyobj.get( 'node_label' )
-                        node_props = pyobj.get( 'props' )
+                        node_props = {  key[self.prop_prefix_len:]: val for key, val in pyobj.items()
+                                        if key.startswith(self.prop_prefix) }
                         node_identity = session.execute_write( self.create_node, node_ref, node_label, node_props )
                         self.nodesToRef[ node_ref ] = node_identity
                     elif obj_type == 'rel':
                         rel_type = pyobj.get('rel_type')
                         rel_src_node = pyobj.get('rel_src_node')
                         rel_dst_node = pyobj.get('rel_dst_node')
-                        rel_props = pyobj.get( 'props' )
+                        rel_props = {  key[self.prop_prefix_len:]: val for key, val in pyobj.items()
+                                        if key.startswith(self.prop_prefix) }
                         rel_identity = session.execute_write( self.create_rel, rel_src_node, rel_dst_node, rel_type, rel_props )
                         
         self.logger.info( 'graphcreator: done.' )
@@ -155,12 +172,11 @@ class creategraphjson(ReportingCommand):
 
     #------------------   def reduce(): start             -----------------#
     def reduce(self, records):
-
         try:
             nodesAndRelsFromSplunk = []
 
             for record in records:
-                if record['json_obj']:
+                if record[self.input_field]:
                     nodesAndRelsFromSplunk.append(record)
 
             if self.noact == False and len(nodesAndRelsFromSplunk) >= 1:

@@ -71,7 +71,7 @@
         <h1>2. Execute |creategraph to create the graph on the Neo4j instance using json_obj</h1>
         <p>Append the following command to the SPL above ("Search results transformed"). You need to configured this app before and then provide the parameters for uri and account to the custom command:</p>
         <pre>
-<code>| creategraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f mode="merge"</code>
+<code>| creategraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=f propsprefix="prop:" mode="merge"</code>
         </pre>
       </html>
     </panel>

@@ -16,13 +16,13 @@ class creategraph(ReportingCommand):
         doc='''
         **Syntax:** **uri=***<URI_ID>*
         **Description:** URI_ID: ID of the Neo4j URI entry as specified in configuration page under "Neo4j URI" ''',
-        require=True, validate=validators.Fieldname() )
+        require=True )
 
     account = Option(
         doc='''
         **Syntax:** **account=***<Account_ID>*
         **Description:** Account_ID: ID of the Neo4j Account entry as specified in configuration page under "Neo4j Accounts" ''',
-        require=True, validate=validators.Fieldname() )
+        require=True )
 
     noact = Option(
         doc='''
@@ -36,6 +36,12 @@ class creategraph(ReportingCommand):
         **Description:** Cypher command with which the nodes and/or relationsships are being created. Choose between \"merge\" and \"create\". Default is \"merge\" ''',
         require=False, validate=validators.Set('merge', 'create'), default='merge' )
 
+    propsprefix = Option(
+        doc='''
+        **Syntax:** **propsprefix=***<properties_prefix>*
+        **Description:** Selector for the properties fields. Choose which fields are taken/read from the inputfield by prepending their names with this prefix. This prefix is then removed from the fieldname in the graph. Default is \"p_\". ''',
+        require=False, default='p_' )
+
     #------------------   def prepare(): start             -----------------#
     def prepare(self):
         """
@@ -47,26 +53,21 @@ class creategraph(ReportingCommand):
         self.app_id, self.conf_uris_page, self.conf_accounts_page, self.neo4j_uri, self.neo4j_accoount, self.noact = self.sharedprepare()
 
         self.create_mode = str(self.mode).upper()
-
+        self.prop_prefix = self.propsprefix
+        self.prop_prefix_len = len(self.propsprefix)
+        
         self.logger.debug( 'prepare() done.' )
     #------------------   def prepare(): end               -----------------#
-    
-    #------------------   def propdicttostr(): start       -----------------#
-    def propdicttostr( self, propdict: dict ):
-        propstr = ''
-        if len(propdict) >= 1:
-            propstrlist = []
-            for key, value in propdict.items():
-                propstrlist.append( '{0}: \'{1}\''.format(key, value) )
-            propstr = '{ ' + ', '.join(propstrlist) + ' }'
-        return propstr
-    #------------------   def propdicttostr(): end         -----------------#
 
     #------------------   def build_paramsstr(): start     -----------------#
     def build_paramsstr( self, props: dict ):
+        if props == None:
+            return '' 
+
         propslist = []
         for pkey, pval in props.items():
-            propstr = '{0}: \'{1}\''.format( str(pkey), str(pval) )
+            val_escaped = str(pval).replace('\\', '\\\\').replace(r'"', r'\"').replace(r"'", r'\'')
+            propstr = '{0}: \'{1}\''.format( str(pkey), val_escaped )
             propslist.append(propstr)
         unwrapped_propsstr = ', '.join(propslist)
         outstring = '{{ {0} }}'.format( unwrapped_propsstr )
@@ -134,8 +135,9 @@ class creategraph(ReportingCommand):
                 for nodeToCreate in nodesToCreate:
                     # collect properties in fields
                     nodeprops = {}
+                    prefixrex = '^{0}(.+)$'.format(self.prop_prefix)
                     for key, value in nodeToCreate.items():
-                        node_propkey_capture = re.search('^prop:(.+)$', key)
+                        node_propkey_capture = re.search(prefixrex, key)
                         if not node_propkey_capture == None and string_hascontent(value):
                             newkey = node_propkey_capture.group(1)
                             nodeprops[ newkey ] = value
@@ -147,8 +149,9 @@ class creategraph(ReportingCommand):
                 for relToCreate in relsToCreate:
                     # collect properties in fields
                     relprops = {}
+                    prefixrex = '^{0}(.+)$'.format(self.prop_prefix)
                     for key, value in relToCreate.items():
-                        rel_propkey_capture = re.search('^prop:(.+)$', key)
+                        rel_propkey_capture = re.search(prefixrex, key)
                         if not rel_propkey_capture == None and string_hascontent(value):
                             relprops[ rel_propkey_capture.group(1) ] = value
 
