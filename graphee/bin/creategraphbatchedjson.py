@@ -8,7 +8,8 @@ import re, json
 from neo4j import GraphDatabase 
 from splunklib.searchcommands import dispatch, ReportingCommand, Configuration, Option, validators
 from helperfuncs import string_hascontent, string_preformat
-import debugpy
+from collections import namedtuple
+#import debugpy
 
 @Configuration( requires_preop = True, run_in_preview = False )
 class creategraphbatchedjson(ReportingCommand):
@@ -78,32 +79,106 @@ class creategraphbatchedjson(ReportingCommand):
         return outstring
     #------------------   def build_paramsstr(): end       -----------------#
 
-    #------------------   def create_rel(): start          -----------------#
-    def create_rel( self, tx, src_node_id: str, dst_node_id: str, reltype: str, props: dict ):
-        try:
-            src_node_id = self.nodesToRef[src_node_id]
-            dst_node_id = self.nodesToRef[dst_node_id]
-        except:
-            errormsg =  'ERROR: In create_rel(): Seems like the source and/or dest node of the rel to be created are null. Are you sure you created them already?'
-            self.error_exit( sys.exc_info(), str(errormsg) )
+    #------------------   def batchcreate_rel(): start     -----------------#
+    def batchcreate_rel( self, tx, reltype: str, rels: list ):
+        relsCreatedSrcDstToId = {}
+        SrcDst = namedtuple( 'SrcDst', ['rel_type', 'src', 'dst'] )
 
-        propsstr = self.build_paramsstr(props)
-        query = ( 'MATCH (src) WHERE id(src) = $src_node_id ' +
-                  'MATCH (dst) WHERE id(dst) = $dst_node_id ' +
-                  '{0} (src)-[rel:{1} {2}]->(dst) RETURN ID(rel)' ).format( self.create_mode, reltype, propsstr )
-        result = tx.run( query, src_node_id=src_node_id, dst_node_id=dst_node_id )
+        query =  """UNWIND $rels as rel \n""" \
+                 """MATCH (src) WHERE ID(src) = rel.src_node_id \n""" \
+                 """MATCH (dst) WHERE ID(dst) = rel.dst_node_id \n""" \
+                f"""CREATE (src)-[r:{reltype}]->(dst) \n""" \
+                 """SET r += rel.properties \n""" \
+                 """RETURN COLLECT(ID(r))"""
 
-        rels_id = []
+        result = tx.run( query, rels=rels )
+
         for record in result:
-            rels_id.append( record['ID(rel)'] )
-        if not len( rels_id ) > 1:
-            return rels_id[0]
-        else:
-            errormsg = ( 'ERROR: In create_rel(): Created one relationship, but more than one relationship was returned.' )
-            self.error_exit( sys.exc_info(), errormsg )
-    #------------------   def create_rel(): end            -----------------#
+            relIDs = record[0]
 
-    #------------------   def batchcreate_node(): start    -----------------#
+            countRels = len( rels )
+            countRelsCreated = len( relIDs )
+
+            if countRelsCreated == countRels:
+                for i in range( countRels ):
+                    src_node_id = rels[i]['src_node_id']
+                    dst_node_id = rels[i]['dst_node_id']
+                    srcDstRef = SrcDst( rel_type=reltype, src=src_node_id, dst=dst_node_id )
+                    relsCreatedSrcDstToId[srcDstRef] = relIDs[i]
+
+                return relsCreatedSrcDstToId
+            else:
+                errormsg = ( f'ERROR: In create_node(): {countRels} nodes to be created, but only {countRelsCreated} nodes confirmed' )
+                self.error_exit( sys.exc_info(), errormsg )
+    #------------------   def batchcreate_rel(): end       -----------------#
+
+    #------------------   def relbatcher(): start          -----------------#
+    def relbatcher( self, reltype: str, rels: list ):
+        relsCreated = {}
+
+        with self.driver.session() as session:
+            for i in range(0, len(rels), self.batchsize):
+                fromIdx = i
+                toIdx = i+self.batchsize
+                relBatchCreated = session.execute_write(self.batchcreate_rel, reltype, rels[fromIdx:toIdx])
+                relsCreated = { **relsCreated, **relBatchCreated }
+       
+        return relsCreated
+    #------------------   def relbatcher(): end             -----------------#
+
+    #------------------   def create_rels(): start          -----------------#
+    def create_rels( self, rels: list, nodeRefToId: dict ):
+        relSrcDstToId = {}
+        relsByLabel = {}
+        SrcDst = namedtuple( 'SrcDst', ['rel_type', 'src', 'dst'] )
+
+        for rel in rels:
+            newRel = {}
+
+            rel_type = rel.get('rel_type')
+            src_node_ref = rel['rel_src_node']
+            dst_node_ref = rel['rel_dst_node']
+            src_node_id = nodeRefToId.get( src_node_ref )
+            dst_node_id = nodeRefToId.get( dst_node_ref )
+            if src_node_id is None:
+                errormsg =  f'ERROR: In create_rels(): The src node {src_node_ref} of the rel to be created was not found. Are you sure you created them already?'
+                self.error_exit( sys.exc_info(), str(errormsg) )
+            if dst_node_id is None:
+                errormsg =  f'ERROR: In create_rels(): The dest node {dst_node_ref} of the rel to be created was not found. Are you sure you created them already?'
+                self.error_exit( sys.exc_info(), str(errormsg) )
+            srcDstRef = SrcDst( rel_type=rel_type, src=src_node_id, dst=dst_node_id )
+
+            properties = { key[self.prop_prefix_len:]: val for key, val in rel.items() if key.startswith(self.prop_prefix) }
+
+            if relSrcDstToId.get( srcDstRef ) is None:
+                relSrcDstToId[srcDstRef] = 'na'
+            else:
+                errormsg = ( f'ERROR: In create_rels(): Duplicate rel found in inputstream: {srcDstRef} rel_type: {rel_type} rel_src_node: {src_node_ref} rel_dst_node: {dst_node_ref}. |creategraphbatchedjson cannot work with dups. Please dedup beforehand. Aborting.' )
+                self.error_exit( sys.exc_info(), errormsg )
+
+            newRel['src_node_id'] = src_node_id
+            newRel['dst_node_id'] = dst_node_id
+            newRel['properties']   = properties
+
+            if relsByLabel.get(rel_type) is None:
+                relsByLabel[rel_type] = []
+            
+            relsByLabel[rel_type].append(newRel)
+
+        for reltypeToBatch, relsToBatch in relsByLabel.items():
+            relsCreated = self.relbatcher( reltypeToBatch, relsToBatch )
+            for key, val in relsCreated.items():
+                relSrcDstToId[key] = val
+
+        for key, val in relSrcDstToId.items():
+            if val == 'na':
+                errormsg = ( f'ERROR: In create_nodes(): The rel {key} which should have been created was not. Aborting.' )
+                self.error_exit( sys.exc_info(), errormsg )
+
+        return relSrcDstToId
+    #------------------   def create_rels(): end            -----------------#
+
+    #------------------   def batchcreate_node(): start     -----------------#
     def batchcreate_node( self, tx, labelset: str, nodes: list ):
         nodesCreatedRefToId = {}
 
@@ -121,17 +196,16 @@ class creategraphbatchedjson(ReportingCommand):
             countNodesCreated = len( nodeIDs )
 
             if countNodesCreated == countNodes:
-                for i in range(len(nodes)):
+                for i in range( countNodes ):
                     nodesCreatedRefToId[nodes[i]['node_ref']] = nodeIDs[i]
 
                 return nodesCreatedRefToId
             else:
                 errormsg = ( f'ERROR: In create_node(): {countNodes} nodes to be created, but only {countNodesCreated} nodes confirmed' )
                 self.error_exit( sys.exc_info(), errormsg )
+    #------------------   def batchcreate_node(): end        -----------------#
 
-    #------------------   def batchcreate_node(): end       -----------------#
-
-    #------------------   def nodebatcher(): start    -----------------#
+    #------------------   def nodebatcher(): start           -----------------#
     def nodebatcher( self, labelstr: str, nodes: list ):
         nodesCreated = {}
 
@@ -143,7 +217,7 @@ class creategraphbatchedjson(ReportingCommand):
                 nodesCreated = { **nodesCreated, **nodeBatchCreated }
         
         return nodesCreated
-    #------------------   def nodebatcher(): end       -----------------#
+    #------------------   def nodebatcher(): end             -----------------#
 
     #------------------   def create_nodes(): start         -----------------#
     def create_nodes( self, nodes: list ):
@@ -160,7 +234,7 @@ class creategraphbatchedjson(ReportingCommand):
                 labelstr = labelset
             properties = { key[self.prop_prefix_len:]: val for key, val in node.items() if key.startswith(self.prop_prefix) }
             node_ref = node.get('node_ref')
-            if not nodeRefToId.get(node_ref):
+            if nodeRefToId.get(node_ref) is None:
                 nodeRefToId[node_ref] = 'na'
             else:
                 errormsg = ( f'ERROR: In create_nodes(): Duplicate node_ref found in inputstream: {node_ref}. |creategraphbatchedjson cannot work with dups. Please dedup beforehand. Aborting.' )
@@ -170,13 +244,13 @@ class creategraphbatchedjson(ReportingCommand):
             newNode['node_label'] = labelstr
             newNode['properties'] = properties
 
-            if not nodesByLabel.get(labelstr):
+            if nodesByLabel.get(labelstr) is None:
                 nodesByLabel[labelstr] = []
             
             nodesByLabel[labelstr].append(newNode)
 
-        for labelstr, nodes in nodesByLabel.items():
-            nodesCreated = self.nodebatcher( labelstr, nodes )
+        for labelstrToBatch, nodesToBatch in nodesByLabel.items():
+            nodesCreated = self.nodebatcher( labelstrToBatch, nodesToBatch )
             for key, val in nodesCreated.items():
                 nodeRefToId[key] = val
 
@@ -201,7 +275,8 @@ class creategraphbatchedjson(ReportingCommand):
                     relsToCreate.append(rec)
 
         if len(nodesToCreate) >= 1:
-            nodesCreated = self.create_nodes(nodesToCreate)
+            self.nodeRefToId   = self.create_nodes( nodesToCreate )
+            self.relSrcDstToId = self.create_rels( relsToCreate, self.nodeRefToId )
                        
         self.logger.info( 'graphcreator: done.' )
     #------------------   def graphcreator(): end         -----------------#
