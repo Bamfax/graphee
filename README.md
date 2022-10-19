@@ -14,20 +14,20 @@ All trademarks are property of their respective owners.
 ## More Splunk Graph Apps
 Be sure to check these Splunk Apps out, as they bring even more Graph life into Splunk:
 - 3D Graph Network Topology Visualization
-    - https://splunkbase.splunk.com/app/4611
-    - https://github.com/splunk/splunk-3D-graph-network-topology-viz
-    - Awesome, large scale, GPU-accelerated Graph Visualization
+    - Awesome, accelerated/large scale Graph Visualization
     - Also includes NetworkX bindings (bundled in Slunk PSC)
     - Based upon the awesome underlying library https://github.com/vasturiano/3d-force-graph
+    - https://splunkbase.splunk.com/app/4611
+    - https://github.com/splunk/splunk-3D-graph-network-topology-viz
 - Python for Scientific Computing (PSC)
+    - Contains NetworkX library and allows binding to it (via interface API)
     - https://github.com/splunk/Splunk-python-for-scientific-computing
     - Linux 64-bit: https://splunkbase.splunk.com/app/2882/
     - Windows 64-bit: https://splunkbase.splunk.com/app/2883/
-    - Contains NetworkX library and allows binding to it (via interface API)
 - Graphviz:
+    - Very customizable and interactable Graph Visualization
     - https://splunkbase.splunk.com/app/4346
     - https://github.com/ThomasDancoisne/SA-Graphviz
-    - Very customizable and interactable Graph Visualization
 
 <br/><br/>
 
