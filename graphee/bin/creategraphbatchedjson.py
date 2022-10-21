@@ -9,6 +9,7 @@ from neo4j import GraphDatabase
 from splunklib.searchcommands import dispatch, ReportingCommand, Configuration, Option, validators
 from helperfuncs import string_hascontent, string_preformat
 from collections import namedtuple
+import debugpy
 
 @Configuration( requires_preop = True, run_in_preview = False )
 class creategraphbatchedjson(ReportingCommand):
@@ -32,6 +33,12 @@ class creategraphbatchedjson(ReportingCommand):
         **Description:** No action. Default is \"false\" ''',
         require=False, validate=validators.Boolean(), default='false' )
 
+    mode = Option(
+        doc='''
+        **Syntax:** **mode=***<"MERGE"|"CREATE">*
+        **Description:** Cypher command with which the nodes and/or relationsships are being created. Choose between \"merge\" and \"create\". Default is \"merge\" ''',
+        require=False, validate=validators.Set('merge', 'create'), default='merge' )
+
     inputfield = Option(
         doc='''
         **Syntax:** **inputfield=***<inputfield>*
@@ -53,6 +60,7 @@ class creategraphbatchedjson(ReportingCommand):
         self.logger.info('prepare start: %s', self)
  
         self.app_id, self.conf_uris_page, self.conf_accounts_page, self.neo4j_uri, self.neo4j_accoount, self.noact = self.sharedprepare()
+        self.create_mode = str(self.mode).upper()
         self.input_field = self.inputfield
         self.prop_prefix = self.propsprefix
         self.prop_prefix_len = len(self.propsprefix)
@@ -83,7 +91,7 @@ class creategraphbatchedjson(ReportingCommand):
         query =  """UNWIND $rels as rel \n""" \
                  """MATCH (src) WHERE ID(src) = rel.src_node_id \n""" \
                  """MATCH (dst) WHERE ID(dst) = rel.dst_node_id \n""" \
-                f"""CREATE (src)-[r:{reltype}]->(dst) \n""" \
+                f"""{self.create_mode} (src)-[r:{reltype} {{rel_ref: rel.rel_ref}}]->(dst) \n""" \
                  """SET r += rel.properties \n""" \
                  """RETURN COLLECT(ID(r))"""
 
@@ -125,11 +133,12 @@ class creategraphbatchedjson(ReportingCommand):
         for rel in rels:
             newRel = {}
 
-            rel_type = rel.get('rel_type')
+            ref_ref      = rel.get('rel_ref')
+            rel_type     = rel.get('rel_type')
             src_node_ref = rel['rel_src_node']
             dst_node_ref = rel['rel_dst_node']
-            src_node_id = nodeRefToId.get( src_node_ref )
-            dst_node_id = nodeRefToId.get( dst_node_ref )
+            src_node_id  = nodeRefToId.get( src_node_ref )
+            dst_node_id  = nodeRefToId.get( dst_node_ref )
             if src_node_id is None:
                 errormsg =  f'ERROR: In create_rels(): The src node {src_node_ref} of the rel to be created was not found. Are you sure you created them already?'
                 self.error_exit( sys.exc_info(), str(errormsg) )
@@ -140,9 +149,10 @@ class creategraphbatchedjson(ReportingCommand):
 
             properties = { key[self.prop_prefix_len:]: val for key, val in rel.items() if key.startswith(self.prop_prefix) }
 
+            newRel['rel_ref']     = ref_ref
             newRel['src_node_id'] = src_node_id
             newRel['dst_node_id'] = dst_node_id
-            newRel['properties']   = properties
+            newRel['properties']  = properties
 
             if relsByLabel.get(rel_type) is None:
                 relsByLabel[rel_type] = []
@@ -161,7 +171,7 @@ class creategraphbatchedjson(ReportingCommand):
         nodesCreatedRefToId = {}
 
         query =  """UNWIND $nodes as node \n""" \
-                f"""CREATE (n:{labelset}) \n""" \
+                f"""{self.create_mode} (n:{labelset} {{node_ref: node.node_ref}}) \n""" \
                  """SET n += node.properties \n""" \
                  """RETURN COLLECT(ID(n))"""
 
@@ -205,13 +215,13 @@ class creategraphbatchedjson(ReportingCommand):
         for node in nodes:
             newNode = {}
 
+            node_ref = node.get('node_ref')
             labelset = node.get('node_label')
             if isinstance(labelset, list):
                 labelstr = ':'.join(labelset)
             else:
                 labelstr = labelset
             properties = { key[self.prop_prefix_len:]: val for key, val in node.items() if key.startswith(self.prop_prefix) }
-            node_ref = node.get('node_ref')
             if nodeRefToId.get(node_ref) is None:
                 nodeRefToId[node_ref] = 'na'
             else:
@@ -279,6 +289,8 @@ class creategraphbatchedjson(ReportingCommand):
 
     #------------------   def reduce(): start             -----------------#
     def reduce(self, records):
+        #debugpy.listen(("0.0.0.0", 5678))
+        #debugpy.wait_for_client()
 
         try:
             splunkSetFull = []
