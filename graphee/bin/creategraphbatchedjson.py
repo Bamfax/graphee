@@ -9,7 +9,6 @@ from neo4j import GraphDatabase
 from splunklib.searchcommands import dispatch, ReportingCommand, Configuration, Option, validators
 from helperfuncs import string_hascontent, string_preformat
 from collections import namedtuple
-import debugpy
 
 @Configuration( requires_preop = True, run_in_preview = False )
 class creategraphbatchedjson(ReportingCommand):
@@ -289,9 +288,6 @@ class creategraphbatchedjson(ReportingCommand):
 
     #------------------   def reduce(): start             -----------------#
     def reduce(self, records):
-        #debugpy.listen(("0.0.0.0", 5678))
-        #debugpy.wait_for_client()
-
         try:
             splunkSetFull = []
             objsToProcess = []
