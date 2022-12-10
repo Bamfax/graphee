@@ -26,6 +26,8 @@ from warnings import warn
 if t.TYPE_CHECKING:
     import typing_extensions as te
 
+
+
 from ..._async_compat.util import AsyncUtil
 from ..._codec.hydration import BrokenHydrationObject
 from ..._data import (
@@ -52,7 +54,7 @@ if t.TYPE_CHECKING:
 
 
 _T = t.TypeVar("_T")
-_T_ResultKey = t.Union[int, str]
+_TResultKey = t.Union[int, str]
 
 
 _RESULT_OUT_OF_SCOPE_ERROR = (
@@ -67,9 +69,10 @@ _RESULT_CONSUMED_ERROR = (
 
 
 class AsyncResult:
-    """A handler for the result of Cypher query execution. Instances
-    of this class are typically constructed and returned by
-    :meth:`.AyncSession.run` and :meth:`.AsyncTransaction.run`.
+    """Handler for the result of Cypher query execution.
+
+    Instances of this class are typically constructed and returned by
+    :meth:`.AsyncSession.run` and :meth:`.AsyncTransaction.run`.
     """
 
     def __init__(self, connection, fetch_size, on_closed, on_error):
@@ -106,23 +109,18 @@ class AsyncResult:
         else:
             return self._raw_qid
 
-    async def _tx_ready_run(self, query, parameters, **kwargs):
+    async def _tx_ready_run(self, query, parameters):
         # BEGIN+RUN does not carry any extra on the RUN message.
         # BEGIN {extra}
         # RUN "query" {parameters} {extra}
-        await self._run(
-            query, parameters, None, None, None, None, **kwargs
-        )
+        await self._run(query, parameters, None, None, None, None)
 
     async def _run(
-        self, query, parameters, db, imp_user, access_mode, bookmarks,
-        **kwargs
+        self, query, parameters, db, imp_user, access_mode, bookmarks
     ):
         query_text = str(query)  # Query or string object
         query_metadata = getattr(query, "metadata", None)
         query_timeout = getattr(query, "timeout", None)
-
-        parameters = dict(parameters or {}, **kwargs)
 
         self._metadata = {
             "query": query_text,
@@ -351,7 +349,7 @@ class AsyncResult:
 
             async def create_node_tx(tx, name):
                 result = await tx.run(
-                    "CREATE (n:ExampleNode { name: $name }) RETURN n", name=name
+                    "CREATE (n:ExampleNode {name: $name}) RETURN n", name=name
                 )
                 record = await result.single()
                 value = record.value()
@@ -416,8 +414,12 @@ class AsyncResult:
 
         Calling this method always exhausts the result.
 
-        A warning is generated if more than one record is available but
-        the first of these is still returned.
+        If ``strict`` is :const:`True`, this method will raise an exception if
+        there is not exactly one record left.
+
+        If ``strict`` is :const:`False`, fewer than one record will make this
+        method return :const:`None`, more than one record will make this method
+        emit a warning and return the first record.
 
         :param strict:
             If :const:`True`, raise a :class:`neo4j.ResultNotSingleError`
@@ -425,15 +427,16 @@ class AsyncResult:
             warning if there are more than 1 record.
             :const:`False` by default.
 
-        :warns: if more than one record is available
+        :returns: the next :class:`neo4j.Record` or :const:`None` if none remain
+
+        :warns: if more than one record is available and
+            ``strict`` is :const:`False`
 
         :raises ResultNotSingleError:
             If ``strict=True`` and not exactly one record is available.
         :raises ResultConsumedError: if the transaction from which this result
             was obtained has been closed or the Result has been explicitly
             consumed.
-
-        :returns: the next :class:`neo4j.Record` or :const:`None` if none remain
 
         .. versionchanged:: 5.0
             Added ``strict`` parameter.
@@ -469,6 +472,9 @@ class AsyncResult:
     async def fetch(self, n: int) -> t.List[Record]:
         """Obtain up to n records from this result.
 
+        Fetch ``min(n, records_left)`` records from this result and return them
+        as a list.
+
         :param n: the maximum number of records to fetch.
 
         :returns: list of :class:`neo4j.Record`
@@ -487,6 +493,7 @@ class AsyncResult:
 
     async def peek(self) -> t.Optional[Record]:
         """Obtain the next record from this result without consuming it.
+
         This leaves the record in the buffer for further processing.
 
         :returns: the next :class:`neo4j.Record` or :const:`None` if none
@@ -505,15 +512,20 @@ class AsyncResult:
         return None
 
     async def graph(self) -> Graph:
-        """Return a :class:`neo4j.graph.Graph` instance containing all the graph objects
-        in the result. After calling this method, the result becomes
+        """Turn the result into a :class:`neo4j.Graph`.
+
+        Return a :class:`neo4j.graph.Graph` instance containing all the graph
+        objects in the result. This graph will also contain already consumed
+        records.
+
+        After calling this method, the result becomes
         detached, buffering all remaining records.
+
+        :returns: a result graph
 
         :raises ResultConsumedError: if the transaction from which this result
             was obtained has been closed or the Result has been explicitly
             consumed.
-
-        :returns: a result graph
 
         .. versionchanged:: 5.0
             Can raise :exc:`ResultConsumedError`.
@@ -522,55 +534,60 @@ class AsyncResult:
         return self._hydration_scope.get_graph()
 
     async def value(
-        self, key: _T_ResultKey = 0, default: object = None
+        self, key: _TResultKey = 0, default: t.Optional[object] = None
     ) -> t.List[t.Any]:
-        """Helper function that return the remainder of the result as a list of values.
-
-        See :class:`neo4j.Record.value`
+        """Return the remainder of the result as a list of values.
 
         :param key: field to return for each remaining record. Obtain a single value from the record by index or key.
         :param default: default value, used if the index of key is unavailable
 
+        :returns: list of individual values
+
         :raises ResultConsumedError: if the transaction from which this result
             was obtained has been closed or the Result has been explicitly
             consumed.
 
-        :returns: list of individual values
-
         .. versionchanged:: 5.0
             Can raise :exc:`ResultConsumedError`.
+
+        .. seealso:: :meth:`.Record.value`
         """
         return [record.value(key, default) async for record in self]
 
     async def values(
-        self, *keys: _T_ResultKey
+        self, *keys: _TResultKey
     ) -> t.List[t.List[t.Any]]:
-        """Helper function that return the remainder of the result as a list of values lists.
-
-        See :class:`neo4j.Record.values`
+        """Return the remainder of the result as a list of values lists.
 
         :param keys: fields to return for each remaining record. Optionally filtering to include only certain values by index or key.
+
+        :returns: list of values lists
 
         :raises ResultConsumedError: if the transaction from which this result
             was obtained has been closed or the Result has been explicitly
             consumed.
 
-        :returns: list of values lists
-
         .. versionchanged:: 5.0
             Can raise :exc:`ResultConsumedError`.
+
+        .. seealso:: :meth:`.Record.values`
         """
         return [record.values(*keys) async for record in self]
 
-    async def data(self, *keys: _T_ResultKey) -> t.List[t.Any]:
-        """Helper function that return the remainder of the result as a list of dictionaries.
+    async def data(self, *keys: _TResultKey) -> t.List[t.Dict[str, t.Any]]:
+        """Return the remainder of the result as a list of dictionaries.
 
-        See :class:`neo4j.Record.data`
+        This function provides a convenient but opinionated way to obtain the
+        remainder of the result as mostly JSON serializable data. It is mainly
+        useful for interactive sessions and rapid prototyping.
+
+        For instance, node and relationship labels are not included. You will
+        have to implement a custom serializer should you need more control over
+        the output format.
 
         :param keys: fields to return for each remaining record. Optionally filtering to include only certain values by index or key.
 
         :returns: list of dictionaries
-        :rtype: list
 
         :raises ResultConsumedError: if the transaction from which this result
             was obtained has been closed or the Result has been explicitly
@@ -578,6 +595,8 @@ class AsyncResult:
 
         .. versionchanged:: 5.0
             Can raise :exc:`ResultConsumedError`.
+
+        .. seealso:: :meth:`.Record.data`
         """
         return [record.data(*keys) async for record in self]
 
@@ -662,7 +681,7 @@ class AsyncResult:
             :const:`dict` keys and variable names that contain ``.``  or ``\``
             will be escaped with a backslash (``\.`` and ``\\`` respectively).
         :param parse_dates:
-            If :const:`True`, columns that excluvively contain
+            If :const:`True`, columns that exclusively contain
             :class:`time.DateTime` objects, :class:`time.Date` objects, or
             :const:`None`, will be converted to :class:`pandas.Timestamp`.
 

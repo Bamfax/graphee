@@ -38,7 +38,7 @@ class AsyncNetworkUtil:
 
         :param address:
         :param family:
-        :return:
+        :returns:
         """
         try:
             info = await AsyncNetworkUtil.get_address_info(
@@ -47,7 +47,7 @@ class AsyncNetworkUtil:
             )
         except OSError:
             raise ValueError("Cannot resolve address {}".format(address))
-        return _resolved_addresses_from_info(info, address.host_name)
+        return list(_resolved_addresses_from_info(info, address.host_name))
 
     @staticmethod
     async def resolve_address(address, family=0, resolver=None):
@@ -72,21 +72,27 @@ class AsyncNetworkUtil:
             yield address
             return
 
-        log.debug("[#0000]  C: <RESOLVE> %s", address)
+        log.debug("[#0000]  _: <RESOLVE> in: %s", address)
         if resolver:
             if asyncio.iscoroutinefunction(resolver):
                 resolved_addresses = await resolver(address)
             else:
                 resolved_addresses = resolver(address)
             for address in map(addressing.Address, resolved_addresses):
+                log.debug("[#0000]  _: <RESOLVE> custom resolver out: %s",
+                          address)
                 for resolved_address in await AsyncNetworkUtil._dns_resolver(
                     address, family=family
                 ):
+                    log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
+                              resolved_address)
                     yield resolved_address
         else:
             for resolved_address in await AsyncNetworkUtil._dns_resolver(
                 address, family=family
             ):
+                log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
+                          resolved_address)
                 yield resolved_address
 
 
@@ -102,7 +108,7 @@ class NetworkUtil:
 
         :param address:
         :param family:
-        :return:
+        :returns:
         """
         try:
             info = NetworkUtil.get_address_info(
@@ -136,15 +142,21 @@ class NetworkUtil:
             yield address
             return
 
-        addressing.log.debug("[#0000]  C: <RESOLVE> %s", address)
+        addressing.log.debug("[#0000]  _: <RESOLVE> in: %s", address)
         if resolver:
             for address in map(addressing.Address, resolver(address)):
+                log.debug("[#0000]  _: <RESOLVE> custom resolver out: %s",
+                          address)
                 for resolved_address in NetworkUtil._dns_resolver(
                     address, family=family
                 ):
+                    log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
+                              resolved_address)
                     yield resolved_address
         else:
             for resolved_address in NetworkUtil._dns_resolver(
                 address, family=family
             ):
+                log.debug("[#0000]  _: <RESOLVE> dns resolver out: %s",
+                          resolved_address)
                 yield resolved_address

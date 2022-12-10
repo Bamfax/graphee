@@ -28,7 +28,8 @@ _FuncT = t.TypeVar("_FuncT", bound=t.Callable)
 
 # Can be automatically overridden in builds
 package = "neo4j"
-version = "5.0.1"
+version = "5.3.0"
+deprecated_package = False
 
 
 def get_user_agent():

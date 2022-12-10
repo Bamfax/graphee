@@ -2,19 +2,19 @@
   <view name="doc_app_intro" default='true' />
   <collection label="Documentation">
     <view name="doc_commands"/>
-    <view name="doc_example_creategraph"/>
-    <view name="doc_example_creategraphjson"/>
+    <view name="doc_example_creategraph_plain"/>
+    <view name="doc_example_creategraph_json"/>
     <view name="doc_example_cypher"/>
     <view name="doc_example_getfullgraph"/>
     <view name="doc_challenges_and_solutions"/>
   </collection>
   <collection label="Example Searches">
-    <saved name="example_movies_full_creategraph_01"/>
-    <saved name="example_movies_full_creategraphjson_01"/>
+    <saved name="example_movies_full_creategraph_01_plain"/>
+    <saved name="example_movies_full_creategraph_02_json"/>
     <saved name="example_cypher_query_allgraphobjects_01"/>
     <saved name="example_getfullgraph_query_allgraphobjects_01"/>
 	<saved name="example_firewalltraffic_transformToJson_01"/>
-	<saved name="example_firewalltraffic_json_creategraphjson_01"/>
+	<saved name="example_firewalltraffic_json_creategraph_01"/>
   </collection>
   <view name="configuration" />
   <view name="search" />

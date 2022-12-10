@@ -22,11 +22,17 @@ import typing as t
 
 
 if t.TYPE_CHECKING:
+    import typing_extensions as te
+
     _T = t.TypeVar("_T")
 
 
 class Query:
-    """ Create a new query.
+    """A query with attached extra data.
+
+    This wrapper class for queries is used to attach extra data to queries
+    passed to :meth:`.Session.run` and :meth:`.AsyncSession.run`, fulfilling
+    a similar role as :func:`.unit_of_work` for transactions functions.
 
     :param text: The query text.
     :param metadata: metadata attached to the query.
@@ -34,27 +40,32 @@ class Query:
     """
     def __init__(
         self,
-        text: str,
-        metadata: t.Dict[str, t.Any] = None,
-        timeout: float = None
+        text: te.LiteralString,
+        metadata: t.Optional[t.Dict[str, t.Any]] = None,
+        timeout: t.Optional[float] = None
     ) -> None:
         self.text = text
 
         self.metadata = metadata
         self.timeout = timeout
 
-    def __str__(self) -> str:
+    def __str__(self) -> te.LiteralString:
         return str(self.text)
 
 
 def unit_of_work(
-    metadata: t.Dict[str, t.Any] = None, timeout: float = None
+    metadata: t.Optional[t.Dict[str, t.Any]] = None,
+    timeout: t.Optional[float] = None
 ) -> t.Callable[[_T], _T]:
-    """This function is a decorator for transaction functions that allows extra control over how the transaction is carried out.
+    """Decorator giving extra control over transaction function configuration.
+
+    This function is a decorator for transaction functions that allows extra
+    control over how the transaction is carried out.
 
     For example, a timeout may be applied::
 
         from neo4j import unit_of_work
+
 
         @unit_of_work(timeout=100)
         def count_people_tx(tx):
@@ -64,15 +75,24 @@ def unit_of_work(
 
     :param metadata:
         a dictionary with metadata.
-        Specified metadata will be attached to the executing transaction and visible in the output of ``dbms.listQueries`` and ``dbms.listTransactions`` procedures.
+        Specified metadata will be attached to the executing transaction
+        and visible in the output of ``SHOW TRANSACTIONS YIELD *``
         It will also get logged to the ``query.log``.
-        This functionality makes it easier to tag transactions and is equivalent to ``dbms.setTXMetaData`` procedure, see https://neo4j.com/docs/operations-manual/current/reference/procedures/ for procedure reference.
+        This functionality makes it easier to tag transactions and is
+        equivalent to the ``dbms.setTXMetaData`` procedure, see
+        https://neo4j.com/docs/cypher-manual/current/clauses/transaction-clauses/#query-listing-transactions
+        and https://neo4j.com/docs/operations-manual/current/reference/procedures/
+        for reference.
 
     :param timeout:
         the transaction timeout in seconds.
-        Transactions that execute longer than the configured timeout will be terminated by the database.
+        Transactions that execute longer than the configured timeout will be
+        terminated by the database.
         This functionality allows to limit query/transaction execution time.
-        Specified timeout overrides the default timeout configured in the database using ``dbms.transaction.timeout`` setting.
+        Specified timeout overrides the default timeout configured in the
+        database using ``dbms.transaction.timeout`` setting.
+        Values higher than ``dbms.transaction.timeout`` will be ignored and
+        will fall back to default (unless using Neo4j < 4.2).
         Value should not represent a negative duration.
         A zero duration will make the transaction execute indefinitely.
         None will use the default timeout configured in the database.

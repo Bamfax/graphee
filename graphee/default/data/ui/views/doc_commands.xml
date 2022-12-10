@@ -12,9 +12,9 @@
       <h2>
         <b>Creategraph</b>
       </h2>
-      <p>| creategraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt; mode=&lt;create|merge&gt;</p>
+      <p>| creategraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;"true"|"false"&gt; mode=&lt;"create"|"merge"&gt; inputformat=&lt;"plain"|"json"&gt; inputfield=&lt;inputfieldname_string&gt;</p>
       <p>Type: Reporting Command</p>
-      <p>Use: Creates a graph on the Neo4j instance by transforming the input events, transforming and sending them to the graph db. Takes a set of multiple fields as input to create the nodes and relationsships as a graph.</p>
+      <p>Use: Creates a graph on the Neo4j instance by transforming the input events, transforming and sending them to the graph db.</p>
       <h3>
         <b>Options:</b>
       </h3>
@@ -28,44 +28,23 @@
         <li>
           <b>propsprefix:</b>
         </li>
-        <p>Syntax: propsprefix=&lt;properties_prefix&gt;</p>
+        <p>Syntax: propsprefix=&lt;properties_prefix_string&gt;</p>
         <p>Description: Selector for the properties fields. Choose which fields are taken/read from the inputfield by prepending their names with this prefix. This prefix is then removed from the fieldname in the graph.</p>
         <p>Default is "p_".</p>
-      </ul>
-    </html>
-    <html>
-      <h2>
-        <b>Creategraphjson</b>
-      </h2>
-      <p>| creategraphjson uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt; mode=&lt;create|merge&gt;</p>
-      <p>Type: Reporting Command</p>
-      <p>Use: Creates a graph on the Neo4j instance by transforming the input events, transforming and sending them to the graph db. Takes a set of json objects as input to create the nodes and relationsships as a graph. The json object needs to come with all needed fields.</p>
-      <h3>
-        <b>Options:</b>
-      </h3>
-      <ul>
         <li>
-          <b>mode:</b>
+          <b>inputformat</b>
         </li>
-        <p>Syntax: mode=&lt;"merge"|"create"&gt;</p>
-        <p>Description: Cypher command with which the nodes and/or relationsships are being created. Choose between "merge" and "create".</p>
-        <p>Default is "merge".</p>
+        <p>Syntax: inputformat=&lt;"plain"|"json"&gt;</p>
+        <p>Description: Input format can be "plain" which means separate fields or "json" where a single json field is taken which contains the zipped required fields.</p>
+        <p>Default is "plain".</p>
         <li>
           <b>inputfield:</b>
         </li>
-        <p>Syntax: inputfield=&lt;inputfield&gt;</p>
-        <p>Description: Name of the field which is taken as inputfield.</p>
+        <p>Syntax: inputfield=&lt;inputfieldname_string&gt;</p>
+        <p>Description: When inputformat="json", specifies the name of the field which contains the json input object. </p>
         <p>Default is "json_obj".</p>
-        <li>
-          <b>propsprefix:</b>
-        </li>
-        <p>Syntax: propsprefix=&lt;properties_prefix&gt;</p>
-        <p>Description: Selector for the properties fields. Choose which fields are taken/read from the inputfield by prepending their names with this prefix. This prefix is then removed from the fieldname in the graph.</p>
-        <p>Default is "p_".</p>
       </ul>
     </html>
-  </row>
-  <row>
     <html>
       <h2>
         <b>Cypher</b>
@@ -90,6 +69,8 @@
         <p>Description: Cypher querystring to be executed on the graph db.</p>
       </ul>
     </html>
+  </row>
+  <row>
     <html>
       <h2>
         <b>Getfullgraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; noact=&lt;true|false&gt;</b>
@@ -107,10 +88,8 @@
         </li>
       </ul>
     </html>
-  </row>
-  <row>
     <html>
-      <h1>Common Options available on all commands</h1>
+      <h1>Common options available on all commands</h1>
       <ul>
         <li>
           <b>uri:</b>
@@ -134,13 +113,13 @@
     <html>
       <h1>A word on creating graphs</h1>
       <ul>
-        <li>Please note the difference in meaning between node_ref and node_id. The former is the required field for referencing nodes in the input dataset when creating graphs. It has no other function as uniquely referencing nodes in the building the cypher commands that create the graph. It is not persistent and vanishes after the graph was created. The latter is returned by graph queries: It is the ID neo4j assigns to stored nodes and rels.</li>
+        <li>Please note the difference in meaning between node_ref and node_id. The former is the required field for referencing nodes in the input dataset when creating graphs. It has no other function as uniquely referencing nodes in the building the cypher commands that create the graph. It is not persisted in the graph. The latter is returned by graph queries: It is the ID neo4j assigns to stored nodes and rels.</li>
         <li>Variables like node_ref are fed to Neo4j and need to follow Neo4j conventions. node_ref is a name type in cypher and therefore needs to start with an alphabetic char. See <a href="https://neo4j.com/docs/cypher-manual/current/syntax/naming/" target="_blank">Cypher naming conventions</a> for more info.</li>
         <li>These fields need to be present for creating nodes: obj_type="node", node_ref, node_label. Props are optional.</li>
-        <li>These fields need to be present for creating rels: obj_type="rel", rel_type, rel_dst_node [as in node_ref], rel_src_node [as in node_ref]. Props are optional.</li>
-        <li>Ensure that nodes are created before rels (by sorting nodes to the top). The creategraph commands only succeed if the rel_src_node and rel_dst_node are already present on rel creation.</li>
+        <li>These fields need to be present for creating rels: obj_type="rel", rel_ref, rel_type, rel_dst_node [as in node_ref], rel_src_node [as in node_ref]. Props are optional.</li>
+        <li>When creating rels the creategraph command needs to know which src/dst nodes are referenced by the rel. The creategraph commands only succeed if the rel_src_node and rel_dst_node could be CREATEd or MERGEd beforehand, allowing the creategraph command to find the id of these two nodes. These node ids are then used internally by the creategraph command to reference these nodes.</li>
         <li>Please be aware that graph objects only allow storing of non-fancy data types. See <a href="https://neo4j.com/docs/cypher-manual/current/syntax/values/" target="_blank">Cypher Values and types</a> for more info.</li>
-        <li>Speed of the commands are not in focus yet. Expect creation of larger graphs to take a while. You may want to adjust the timeout in commands.conf.</li>
+        <li>Speed of the commands is improved via batching. Even though, huge graphs with >=100.000 nodes may take a while to create. If timeouts occur, change the defaults in commands.conf.</li>
       </ul>
     </html>
   </row>

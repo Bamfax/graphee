@@ -27,17 +27,15 @@ from urllib.parse import (
     urlparse,
 )
 
-
-if t.TYPE_CHECKING:
-    import typing_extensions as te
-    from .addressing import Address
-
 from ._meta import deprecated
 from .exceptions import ConfigurationError
 
 
 if t.TYPE_CHECKING:
+    import typing_extensions as te
     from typing_extensions import Protocol as _Protocol
+
+    from .addressing import Address
 else:
     _Protocol = object
 
@@ -90,7 +88,7 @@ class Auth:
         scheme: t.Optional[str],
         principal: t.Optional[str],
         credentials: t.Optional[str],
-        realm: str = None,
+        realm: t.Optional[str] = None,
         **parameters: t.Any
     ) -> None:
         self.scheme = scheme
@@ -110,7 +108,9 @@ class Auth:
 AuthToken = Auth
 
 
-def basic_auth(user: str, password: str, realm: str = None) -> Auth:
+def basic_auth(
+    user: str, password: str, realm: t.Optional[str] = None
+) -> Auth:
     """Generate a basic auth token for a given user and password.
 
     This will set the scheme to "basic" for the auth token.
@@ -119,7 +119,7 @@ def basic_auth(user: str, password: str, realm: str = None) -> Auth:
     :param password: current password, this will set the credentials
     :param realm: specifies the authentication provider
 
-    :return: auth token for use with :meth:`GraphDatabase.driver` or
+    :returns: auth token for use with :meth:`GraphDatabase.driver` or
         :meth:`AsyncGraphDatabase.driver`
     """
     return Auth("basic", user, password, realm)
@@ -133,7 +133,7 @@ def kerberos_auth(base64_encoded_ticket: str) -> Auth:
     :param base64_encoded_ticket: a base64 encoded service ticket, this will set
                                   the credentials
 
-    :return: auth token for use with :meth:`GraphDatabase.driver` or
+    :returns: auth token for use with :meth:`GraphDatabase.driver` or
         :meth:`AsyncGraphDatabase.driver`
     """
     return Auth("kerberos", "", base64_encoded_ticket)
@@ -147,7 +147,7 @@ def bearer_auth(base64_encoded_token: str) -> Auth:
     :param base64_encoded_token: a base64 encoded authentication token generated
                                  by a Single-Sign-On provider.
 
-    :return: auth token for use with :meth:`GraphDatabase.driver` or
+    :returns: auth token for use with :meth:`GraphDatabase.driver` or
         :meth:`AsyncGraphDatabase.driver`
     """
     return Auth("bearer", None, base64_encoded_token)
@@ -169,7 +169,7 @@ def custom_auth(
     :param parameters: extra key word parameters passed along to the
                        authentication provider
 
-    :return: auth token for use with :meth:`GraphDatabase.driver` or
+    :returns: auth token for use with :meth:`GraphDatabase.driver` or
         :meth:`AsyncGraphDatabase.driver`
     """
     return Auth(scheme, principal, credentials, realm, **parameters)
@@ -179,11 +179,11 @@ def custom_auth(
 class Bookmark:
     """A Bookmark object contains an immutable list of bookmark string values.
 
+    :param values: ASCII string values
+
     .. deprecated:: 5.0
         `Bookmark` will be removed in version 6.0.
         Use :class:`Bookmarks` instead.
-
-    :param values: ASCII string values
     """
 
     @deprecated("Use the `Bookmarks`` class instead.")
@@ -203,7 +203,7 @@ class Bookmark:
 
     def __repr__(self) -> str:
         """
-        :return: repr string with sorted values
+        :returns: repr string with sorted values
         """
         return "<Bookmark values={{{}}}>".format(", ".join(["'{}'".format(ix) for ix in sorted(self._values)]))
 
@@ -213,7 +213,7 @@ class Bookmark:
     @property
     def values(self) -> frozenset:
         """
-        :return: immutable list of bookmark string values
+        :returns: immutable list of bookmark string values
         """
         return self._values
 
@@ -235,7 +235,7 @@ class Bookmarks:
 
     def __repr__(self) -> str:
         """
-        :return: repr string with sorted values
+        :returns: repr string with sorted values
         """
         return "<Bookmarks values={{{}}}>".format(
             ", ".join(map(repr, sorted(self._raw_values)))
@@ -262,7 +262,7 @@ class Bookmarks:
         You should not need to access them unless you want to serialize
         bookmarks.
 
-        :return: immutable list of bookmark string values
+        :returns: immutable list of bookmark string values
         :rtype: frozenset[str]
         """
         return self._raw_values
@@ -391,27 +391,35 @@ class BookmarkManager(_Protocol, metaclass=abc.ABCMeta):
 
     This class is just an abstract base class that defines the required
     interface. Create a child class to implement a specific bookmark manager
-    or make user of the default implementation provided by the driver through
+    or make use of the default implementation provided by the driver through
     :meth:`.GraphDatabase.bookmark_manager()`.
 
     .. note::
         All methods must be concurrency safe.
 
-    Generally, all methods need to be able to cope with getting passed a
-    ``database`` parameter that is (until then) unknown to the manager.
+    **This is experimental.**
+    It might be changed or removed any time even without prior notice.
 
     .. versionadded:: 5.0
+
+    .. versionchanged:: 5.3
+        The bookmark manager no longer tracks bookmarks per database.
+        This effectively changes the signature of almost all bookmark
+        manager related methods:
+
+        * :meth:`.update_bookmarks` has no longer a ``database`` argument.
+        * :meth:`.get_bookmarks` has no longer a ``database`` argument.
+        * The ``get_all_bookmarks`` method was removed.
+        * The ``forget`` method was removed.
     """
 
     @abc.abstractmethod
     def update_bookmarks(
-        self, database: str, previous_bookmarks: t.Collection[str],
+        self, previous_bookmarks: t.Collection[str],
         new_bookmarks: t.Collection[str]
     ) -> None:
         """Handle bookmark updates.
 
-        :param database:
-            The database which the bookmarks belong to
         :param previous_bookmarks:
             The bookmarks used at the start of a transaction
         :param new_bookmarks:
@@ -420,32 +428,10 @@ class BookmarkManager(_Protocol, metaclass=abc.ABCMeta):
         ...
 
     @abc.abstractmethod
-    def get_bookmarks(self, database: str) -> t.Collection[str]:
-        """Return the bookmarks for a given database.
-
-        :param database: The database which the bookmarks belong to
+    def get_bookmarks(self) -> t.Collection[str]:
+        """Return the bookmarks stored in the bookmark manager.
 
         :returns: The bookmarks for the given database
-        """
-        ...
-
-    @abc.abstractmethod
-    def get_all_bookmarks(self) -> t.Collection[str]:
-        """Return all bookmarks for all known databases.
-
-        :returns: The collected bookmarks.
-        """
-        ...
-
-    @abc.abstractmethod
-    def forget(self, databases: t.Iterable[str]) -> None:
-        """Forget the bookmarks for the given databases.
-
-        This method is not called by the driver.
-        Forgetting unused databases is the user's responsibility.
-
-        :param databases:
-            The databases which the bookmarks will be removed for.
         """
         ...
 
@@ -456,12 +442,18 @@ class AsyncBookmarkManager(_Protocol, metaclass=abc.ABCMeta):
     The driver comes with a default implementation of the async bookmark
     manager accessible through :attr:`.AsyncGraphDatabase.bookmark_manager()`.
 
+    **This is experimental.**
+    It might be changed or removed any time even without prior notice.
+
     .. versionadded:: 5.0
+
+    .. versionchanged:: 5.3
+        See :class:`.BookmarkManager` for changes.
     """
 
     @abc.abstractmethod
     async def update_bookmarks(
-        self, database: str, previous_bookmarks: t.Collection[str],
+        self, previous_bookmarks: t.Collection[str],
         new_bookmarks: t.Collection[str]
     ) -> None:
         ...
@@ -469,22 +461,10 @@ class AsyncBookmarkManager(_Protocol, metaclass=abc.ABCMeta):
     update_bookmarks.__doc__ = BookmarkManager.update_bookmarks.__doc__
 
     @abc.abstractmethod
-    async def get_bookmarks(self, database: str) -> t.Collection[str]:
+    async def get_bookmarks(self) -> t.Collection[str]:
         ...
 
     get_bookmarks.__doc__ = BookmarkManager.get_bookmarks.__doc__
-
-    @abc.abstractmethod
-    async def get_all_bookmarks(self) -> t.Collection[str]:
-        ...
-
-    get_all_bookmarks.__doc__ = BookmarkManager.get_all_bookmarks.__doc__
-
-    @abc.abstractmethod
-    async def forget(self, databases: t.Iterable[str]) -> None:
-        ...
-
-    forget.__doc__ = BookmarkManager.forget.__doc__
 
 
 def parse_neo4j_uri(uri):

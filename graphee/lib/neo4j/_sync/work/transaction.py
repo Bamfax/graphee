@@ -29,6 +29,10 @@ from ..io import ConnectionErrorHandler
 from .result import Result
 
 
+if t.TYPE_CHECKING:
+    import typing_extensions as te
+
+
 __all__ = (
     "ManagedTransaction",
     "Transaction",
@@ -95,8 +99,8 @@ class TransactionBase:
 
     def run(
         self,
-        query: str,
-        parameters: t.Dict[str, t.Any] = None,
+        query: te.LiteralString,
+        parameters: t.Optional[t.Dict[str, t.Any]] = None,
         **kwparameters: t.Any
     ) -> Result:
         """ Run a Cypher query within the context of this transaction.
@@ -119,7 +123,8 @@ class TransactionBase:
 
         :param query: cypher query
         :param parameters: dictionary of parameters
-        :param kwparameters: additional keyword parameters
+        :param kwparameters: additional keyword parameters.
+            These take precedence over parameters passed as ``parameters``.
 
         :raise TransactionError: if the transaction is already closed
 
@@ -147,7 +152,8 @@ class TransactionBase:
         )
         self._results.append(result)
 
-        result._tx_ready_run(query, parameters, **kwparameters)
+        parameters = dict(parameters or {}, **kwparameters)
+        result._tx_ready_run(query, parameters)
 
         return result
 
@@ -243,7 +249,7 @@ class TransactionBase:
     def _closed(self):
         """Indicate whether the transaction has been closed or cancelled.
 
-        :return:
+        :returns:
             :const:`True` if closed or cancelled, :const:`False` otherwise.
         :rtype: bool
         """

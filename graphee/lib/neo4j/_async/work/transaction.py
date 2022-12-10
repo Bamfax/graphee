@@ -29,6 +29,10 @@ from ..io import ConnectionErrorHandler
 from .result import AsyncResult
 
 
+if t.TYPE_CHECKING:
+    import typing_extensions as te
+
+
 __all__ = (
     "AsyncManagedTransaction",
     "AsyncTransaction",
@@ -95,8 +99,8 @@ class AsyncTransactionBase:
 
     async def run(
         self,
-        query: str,
-        parameters: t.Dict[str, t.Any] = None,
+        query: te.LiteralString,
+        parameters: t.Optional[t.Dict[str, t.Any]] = None,
         **kwparameters: t.Any
     ) -> AsyncResult:
         """ Run a Cypher query within the context of this transaction.
@@ -119,7 +123,8 @@ class AsyncTransactionBase:
 
         :param query: cypher query
         :param parameters: dictionary of parameters
-        :param kwparameters: additional keyword parameters
+        :param kwparameters: additional keyword parameters.
+            These take precedence over parameters passed as ``parameters``.
 
         :raise TransactionError: if the transaction is already closed
 
@@ -147,7 +152,8 @@ class AsyncTransactionBase:
         )
         self._results.append(result)
 
-        await result._tx_ready_run(query, parameters, **kwparameters)
+        parameters = dict(parameters or {}, **kwparameters)
+        await result._tx_ready_run(query, parameters)
 
         return result
 
@@ -243,7 +249,7 @@ class AsyncTransactionBase:
     def _closed(self):
         """Indicate whether the transaction has been closed or cancelled.
 
-        :return:
+        :returns:
             :const:`True` if closed or cancelled, :const:`False` otherwise.
         :rtype: bool
         """
@@ -256,7 +262,7 @@ class AsyncTransaction(AsyncTransactionBase):
     managers (:py:const:`async with` block) where the transaction is committed
     or rolled back on based on whether an exception is raised::
 
-        async with session.begin_transaction() as tx:
+        async with await session.begin_transaction() as tx:
             ...
 
     """

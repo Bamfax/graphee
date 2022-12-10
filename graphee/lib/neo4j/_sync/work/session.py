@@ -24,15 +24,6 @@ from logging import getLogger
 from random import random
 from time import perf_counter
 
-
-if t.TYPE_CHECKING:
-    import typing_extensions as te
-
-    from ..io import Bolt
-
-    _R = t.TypeVar("_R")
-    _P = te.ParamSpec("_P")
-
 from ..._async_compat import sleep
 from ..._async_compat.util import Util
 from ..._conf import SessionConfig
@@ -59,11 +50,22 @@ from .transaction import (
 from .workspace import Workspace
 
 
+if t.TYPE_CHECKING:
+    import typing_extensions as te
+
+    from ..io import Bolt
+
+    _R = t.TypeVar("_R")
+    _P = te.ParamSpec("_P")
+
+
 log = getLogger("neo4j")
 
 
 class Session(Workspace):
-    """A :class:`.Session` is a logical context for transactional units
+    """Context for executing work
+
+    A :class:`.Session` is a logical context for transactional units
     of work. Connections are drawn from the :class:`.Driver` connection
     pool as required.
 
@@ -75,12 +77,9 @@ class Session(Workspace):
     In general, sessions will be created and destroyed within a `with`
     context. For example::
 
-        with driver.session() as session:
+        with driver.session(database="neo4j") as session:
             result = session.run("MATCH (n:Person) RETURN n.name AS name")
-            # do something with the result...
-
-    :param pool: connection pool instance
-    :param config: session config instance
+            ...  # do something with the result
     """
 
     # The current connection.
@@ -90,7 +89,7 @@ class Session(Workspace):
     _transaction: t.Union[Transaction, ManagedTransaction, None] = \
         None
 
-    # The current auto-transaction result, if any.
+    # The current auto-commit transaction result, if any.
     _auto_result = None
 
     # The state this session is in.
@@ -136,16 +135,16 @@ class Session(Workspace):
         connection = self._connection
         self._connection = None
         if connection:
-            log.debug("[#%04X]  %s cancellation clean-up",
+            log.debug("[#%04X]  _: <SESSION> %s cancellation clean-up",
                       connection.local_port, message)
             self._pool.kill_and_release(connection)
         else:
-            log.debug("[#0000]  %s cancellation clean-up", message)
+            log.debug("[#0000]  _: <SESSION> %s cancellation clean-up",
+                      message)
 
     def _result_closed(self):
         if self._auto_result:
-            self._update_bookmark(self._auto_result._database,
-                                        self._auto_result._bookmark)
+            self._update_bookmark(self._auto_result._bookmark)
             self._auto_result = None
             self._disconnect()
 
@@ -177,7 +176,6 @@ class Session(Workspace):
                     try:
                         self._auto_result.consume()
                         self._update_bookmark(
-                            self._auto_result._database,
                             self._auto_result._bookmark
                         )
                     except Exception as error:
@@ -235,8 +233,8 @@ class Session(Workspace):
 
     def run(
         self,
-        query: t.Union[str, Query],
-        parameters: t.Dict[str, t.Any] = None,
+        query: t.Union[te.LiteralString, Query],
+        parameters: t.Optional[t.Dict[str, t.Any]] = None,
         **kwargs: t.Any
     ) -> Result:
         """Run a Cypher query within an auto-commit transaction.
@@ -258,11 +256,12 @@ class Session(Workspace):
 
         :param query: cypher query
         :param parameters: dictionary of parameters
-        :param kwargs: additional keyword parameters
-
-        :raises SessionError: if the session has been closed.
+        :param kwargs: additional keyword parameters.
+            These take precedence over parameters passed as ``parameters``.
 
         :returns: a new :class:`neo4j.Result` object
+
+        :raises SessionError: if the session has been closed.
         """
         self._check_state()
         if not query:
@@ -274,7 +273,7 @@ class Session(Workspace):
             raise ClientError("Explicit Transaction must be handled explicitly")
 
         if self._auto_result:
-            # This will buffer upp all records for the previous auto-transaction
+            # This will buffer upp all records for the previous auto-commit tx
             self._auto_result._buffer_all()
 
         if not self._connection:
@@ -285,11 +284,12 @@ class Session(Workspace):
             cx, self._config.fetch_size, self._result_closed,
             self._result_error
         )
-        bookmarks = self._get_all_bookmarks()
+        bookmarks = self._get_bookmarks()
+        parameters = dict(parameters or {}, **kwargs)
         self._auto_result._run(
             query, parameters, self._config.database,
             self._config.impersonated_user, self._config.default_access_mode,
-            bookmarks, **kwargs
+            bookmarks
         )
 
         return self._auto_result
@@ -299,29 +299,28 @@ class Session(Workspace):
         "This method can lead to unexpected behaviour."
     )
     def last_bookmark(self) -> t.Optional[str]:
-        """Return the bookmark received following the last completed transaction.
+        """Get the bookmark received following the last completed transaction.
 
-        Note: For auto-transactions (:meth:`Session.run`), this will trigger
-        :meth:`Result.consume` for the current result.
+        Note: For auto-commit transactions (:meth:`Session.run`), this will
+        trigger :meth:`Result.consume` for the current result.
 
         .. warning::
             This method can lead to unexpected behaviour if the session has not
             yet successfully completed a transaction.
 
+        :returns: last bookmark
+
         .. deprecated:: 5.0
             :meth:`last_bookmark` will be removed in version 6.0.
             Use :meth:`last_bookmarks` instead.
-
-        :returns: last bookmark
         """
         # The set of bookmarks to be passed into the next transaction.
 
         if self._auto_result:
             self._auto_result.consume()
 
-        if self._transaction and self._transaction._closed:
-            self._update_bookmark(self._transaction._database,
-                                        self._transaction._bookmark)
+        if self._transaction and self._transaction._closed():
+            self._update_bookmark(self._transaction._bookmark)
             self._transaction = None
 
         if self._bookmarks:
@@ -348,11 +347,11 @@ class Session(Workspace):
         in the same session.
 
         "Most recent bookmarks" are either the bookmarks passed to the session
-        or creation, or the last bookmark the session received after committing
+        on creation, or the last bookmark the session received after committing
         a transaction to the server.
 
-        Note: For auto-transactions (:meth:`Session.run`), this will trigger
-        :meth:`Result.consume` for the current result.
+        Note: For auto-commit transactions (:meth:`Session.run`), this will
+        trigger :meth:`Result.consume` for the current result.
 
         :returns: the session's last known bookmarks
         """
@@ -362,16 +361,14 @@ class Session(Workspace):
             self._auto_result.consume()
 
         if self._transaction and self._transaction._closed():
-            self._update_bookmark(self._transaction._database,
-                                        self._transaction._bookmark)
+            self._update_bookmark(self._transaction._bookmark)
             self._transaction = None
 
         return Bookmarks.from_raw_values(self._bookmarks)
 
     def _transaction_closed_handler(self):
         if self._transaction:
-            self._update_bookmark(self._transaction._database,
-                                        self._transaction._bookmark)
+            self._update_bookmark(self._transaction._bookmark)
             self._transaction = None
             self._disconnect()
 
@@ -395,7 +392,7 @@ class Session(Workspace):
             self._transaction_error_handler,
             self._transaction_cancel_handler
         )
-        bookmarks = self._get_all_bookmarks()
+        bookmarks = self._get_bookmarks()
         self._transaction._begin(
             self._config.database, self._config.impersonated_user,
             bookmarks, access_mode, metadata, timeout
@@ -403,20 +400,29 @@ class Session(Workspace):
 
     def begin_transaction(
         self,
-        metadata: t.Dict[str, t.Any] = None,
-        timeout: float = None
+        metadata: t.Optional[t.Dict[str, t.Any]] = None,
+        timeout: t.Optional[float] = None
     ) -> Transaction:
-        """ Begin a new unmanaged transaction. Creates a new :class:`.Transaction` within this session.
-            At most one transaction may exist in a session at any point in time.
-            To maintain multiple concurrent transactions, use multiple concurrent sessions.
+        """Begin a new unmanaged transaction.
 
-            Note: For auto-transaction (Session.run) this will trigger an consume for the current result.
+        Creates a new :class:`.Transaction` within this session.
+        At most one transaction may exist in a session at any point in time.
+        To maintain multiple concurrent transactions, use multiple concurrent
+        sessions.
+
+        Note: For auto-commit transactions (:meth:`.Session.run`), this
+        will trigger a :meth:`.Result.consume` for the current result.
 
         :param metadata:
             a dictionary with metadata.
-            Specified metadata will be attached to the executing transaction and visible in the output of ``dbms.listQueries`` and ``dbms.listTransactions`` procedures.
+            Specified metadata will be attached to the executing transaction
+            and visible in the output of ``SHOW TRANSACTIONS YIELD *``
             It will also get logged to the ``query.log``.
-            This functionality makes it easier to tag transactions and is equivalent to ``dbms.setTXMetaData`` procedure, see https://neo4j.com/docs/operations-manual/current/reference/procedures/ for procedure reference.
+            This functionality makes it easier to tag transactions and is
+            equivalent to the ``dbms.setTXMetaData`` procedure, see
+            https://neo4j.com/docs/cypher-manual/current/clauses/transaction-clauses/#query-listing-transactions
+            and https://neo4j.com/docs/operations-manual/current/reference/procedures/
+            for reference.
 
         :param timeout:
             the transaction timeout in seconds.
@@ -425,10 +431,10 @@ class Session(Workspace):
             Specified timeout overrides the default timeout configured in the database using ``dbms.transaction.timeout`` setting.
             Value should not represent a duration of zero or negative duration.
 
+        :returns: A new transaction instance.
+
         :raises TransactionError: if a transaction is already open.
         :raises SessionError: if the session has been closed.
-
-        :returns: A new transaction instance.
         """
         self._check_state()
         # TODO: Implement TransactionConfig consumption
@@ -510,7 +516,7 @@ class Session(Workspace):
             try:
                 sleep(delay)
             except asyncio.CancelledError:
-                log.debug("[#0000]  Retry cancelled")
+                log.debug("[#0000]  _: <SESSION> retry cancelled")
                 raise
 
         if errors:
@@ -570,14 +576,14 @@ class Session(Workspace):
 
         :param transaction_function: a function that takes a transaction as an
             argument and does work with the transaction.
-            `transaction_function(tx, *args, **kwargs)` where `tx` is a
+            ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
         :param args: additional arguments for the `transaction_function`
         :param kwargs: key word arguments for the `transaction_function`
 
-        :raises SessionError: if the session has been closed.
+        :returns: whatever the given `transaction_function` returns
 
-        :return: a result as returned by the given unit of work
+        :raises SessionError: if the session has been closed.
 
         .. versionadded:: 5.0
         """
@@ -600,53 +606,16 @@ class Session(Workspace):
             This does not necessarily imply access control, see the session
             configuration option :ref:`default-access-mode-ref`.
 
-        This transaction will automatically be committed when the function
-        returns, unless an exception is thrown during query execution or by
-        the user code. Note, that this function performs retries and that the
-        supplied `transaction_function` might get invoked more than once.
-        Therefore, it needs to be idempotent (i.e., have the same effect,
-        regardless if called once or many times).
-
-        Example::
-
-            def do_cypher_tx(tx, cypher):
-                result = tx.run(cypher)
-                values = [record.values() for record in result]
-                return values
-
-            with driver.session() as session:
-                values = session.read_transaction(do_cypher_tx, "RETURN 1 AS x")
-
-        Example::
-
-            def get_two_tx(tx):
-                result = tx.run("UNWIND [1,2,3,4] AS x RETURN x")
-                values = []
-                for record in result:
-                    if len(values) >= 2:
-                        break
-                    values.append(record.values())
-                # or shorter: values = [record.values()
-                #                       for record in result.fetch(2)]
-
-                # discard the remaining records if there are any
-                summary = result.consume()
-                # use the summary for logging etc.
-                return values
-
-            with driver.session() as session:
-                values = session.read_transaction(get_two_tx)
-
         :param transaction_function: a function that takes a transaction as an
             argument and does work with the transaction.
-            `transaction_function(tx, *args, **kwargs)` where `tx` is a
+            ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
         :param args: additional arguments for the `transaction_function`
         :param kwargs: key word arguments for the `transaction_function`
 
-        :raises SessionError: if the session has been closed.
+        :returns: a result as returned by the given unit of work
 
-        :return: a result as returned by the given unit of work
+        :raises SessionError: if the session has been closed.
 
         .. deprecated:: 5.0
             Method was renamed to :meth:`.execute_read`.
@@ -678,24 +647,25 @@ class Session(Workspace):
         Example::
 
             def create_node_tx(tx, name):
-                query = "CREATE (n:NodeExample { name: $name }) RETURN id(n) AS node_id"
+                query = ("CREATE (n:NodeExample {name: $name, id: randomUUID()}) "
+                         "RETURN n.id AS node_id")
                 result = tx.run(query, name=name)
                 record = result.single()
                 return record["node_id"]
 
             with driver.session() as session:
-                node_id = session.execute_write(create_node_tx, "example")
+                node_id = session.execute_write(create_node_tx, "Bob")
 
         :param transaction_function: a function that takes a transaction as an
             argument and does work with the transaction.
-            `transaction_function(tx, *args, **kwargs)` where `tx` is a
+            ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
         :param args: additional arguments for the `transaction_function`
         :param kwargs: key word arguments for the `transaction_function`
 
-        :raises SessionError: if the session has been closed.
+        :returns: a result as returned by the given unit of work
 
-        :return: a result as returned by the given unit of work
+        :raises SessionError: if the session has been closed.
 
         .. versionadded:: 5.0
         """
@@ -718,34 +688,16 @@ class Session(Workspace):
             This does not necessarily imply access control, see the session
             configuration option :ref:`default-access-mode-ref`.
 
-        This transaction will automatically be committed when the function
-        returns unless, an exception is thrown during query execution or by
-        the user code. Note, that this function performs retries and that the
-        supplied `transaction_function` might get invoked more than once.
-        Therefore, it needs to be idempotent (i.e., have the same effect,
-        regardless if called once or many times).
-
-        Example::
-
-            def create_node_tx(tx, name):
-                query = "CREATE (n:NodeExample { name: $name }) RETURN id(n) AS node_id"
-                result = tx.run(query, name=name)
-                record = result.single()
-                return record["node_id"]
-
-            with driver.session() as session:
-                node_id = session.write_transaction(create_node_tx, "example")
-
         :param transaction_function: a function that takes a transaction as an
             argument and does work with the transaction.
-            `transaction_function(tx, *args, **kwargs)` where `tx` is a
+            ``transaction_function(tx, *args, **kwargs)`` where ``tx`` is a
             :class:`.ManagedTransaction`.
         :param args: additional arguments for the `transaction_function`
         :param kwargs: key word arguments for the `transaction_function`
 
-        :raises SessionError: if the session has been closed.
+        :returns: a result as returned by the given unit of work
 
-        :return: a result as returned by the given unit of work
+        :raises SessionError: if the session has been closed.
 
         .. deprecated:: 5.0
             Method was renamed to :meth:`.execute_write`.

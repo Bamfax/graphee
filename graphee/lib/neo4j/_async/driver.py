@@ -26,6 +26,8 @@ if t.TYPE_CHECKING:
 
     import ssl
 
+
+
 from .._async_compat.util import AsyncUtil
 from .._conf import (
     Config,
@@ -66,8 +68,8 @@ from ..api import (
 )
 from .bookmark_manager import (
     AsyncNeo4jBookmarkManager,
-    T_BmConsumer as _T_BmConsumer,
-    T_BmSupplier as _T_BmSupplier,
+    TBmConsumer as _TBmConsumer,
+    TBmSupplier as _TBmSupplier,
 )
 from .work import AsyncSession
 
@@ -135,7 +137,7 @@ class AsyncGraphDatabase:
                     TRUST_ALL_CERTIFICATES,
                     TRUST_SYSTEM_CA_SIGNED_CERTIFICATES
                 ):
-                    from neo4j.exceptions import ConfigurationError
+                    from ..exceptions import ConfigurationError
                     raise ConfigurationError(
                         "The config setting `trust` values are {!r}"
                         .format(
@@ -162,7 +164,7 @@ class AsyncGraphDatabase:
                      or "trust" in config.keys()
                      or "trusted_certificates" in config.keys()
                      or "ssl_context" in config.keys())):
-                from neo4j.exceptions import ConfigurationError
+                from ..exceptions import ConfigurationError
 
                 # TODO: 6.0 remove "trust" from error message
                 raise ConfigurationError(
@@ -218,10 +220,9 @@ class AsyncGraphDatabase:
     )
     def bookmark_manager(
         cls,
-        initial_bookmarks: t.Mapping[str, t.Union[Bookmarks,
-                                                  t.Iterable[str]]] = None,
-        bookmarks_supplier: _T_BmSupplier = None,
-        bookmarks_consumer: _T_BmConsumer = None
+        initial_bookmarks: t.Union[None, Bookmarks, t.Iterable[str]] = None,
+        bookmarks_supplier: t.Optional[_TBmSupplier] = None,
+        bookmarks_consumer: t.Optional[_TBmConsumer] = None
     ) -> AsyncBookmarkManager:
         """Create a :class:`.AsyncBookmarkManager` with default implementation.
 
@@ -232,14 +233,17 @@ class AsyncGraphDatabase:
 
             import neo4j
 
+
+            # omitting closing the driver for brevity
             driver = neo4j.AsyncGraphDatabase.driver(...)
-            bookmark_manager = neo4j.AsyncBookmarkManager(...)
+            bookmark_manager = neo4j.AsyncGraphDatabase.bookmark_manager(...)
 
             async with driver.session(
                 bookmark_manager=bookmark_manager
             ) as session1:
                 async with driver.session(
-                    bookmark_manager=bookmark_manager
+                    bookmark_manager=bookmark_manager,
+                    access_mode=neo4j.READ_ACCESS
                 ) as session2:
                     result1 = await session1.run("<WRITE_QUERY>")
                     await result1.consume()
@@ -256,24 +260,21 @@ class AsyncGraphDatabase:
 
         :param initial_bookmarks:
             The initial set of bookmarks. The returned bookmark manager will
-            use this to initialize its internal bookmarks per database.
-            If present, this parameter must be a mapping of database names
-            to :class:`.Bookmarks` or an iterable of raw bookmark values (str).
+            use this to initialize its internal bookmarks.
         :param bookmarks_supplier:
             Function which will be called every time the default bookmark
             manager's method :meth:`.AsyncBookmarkManager.get_bookmarks`
-            or :meth:`.AsyncBookmarkManager.get_all_bookmarks` gets called.
-            The function will be passed the name of the database (``str``) if
-            ``.get_bookmarks`` is called or ``None`` if ``.get_all_bookmarks``
-            is called. The function must return a :class:`.Bookmarks` object.
-            The result of ``bookmarks_supplier`` will then be concatenated with
-            the internal set of bookmarks and used to configure the session in
-            creation.
+            gets called.
+            The function takes no arguments and must return a
+            :class:`.Bookmarks` object. The result of ``bookmarks_supplier``
+            will then be concatenated with the internal set of bookmarks and
+            used to configure the session in creation. It will, however, not
+            update the internal set of bookmarks.
         :param bookmarks_consumer:
             Function which will be called whenever the set of bookmarks
             handled by the bookmark manager gets updated with the new
-            internal bookmark set. It will receive the name of the database
-            and the new set of bookmarks.
+            internal bookmark set. It will receive the new set of bookmarks
+            as a :class:`.Bookmarks` object and return :const:`None`.
 
         :returns: A default implementation of :class:`AsyncBookmarkManager`.
 
@@ -281,6 +282,18 @@ class AsyncGraphDatabase:
         It might be changed or removed any time even without prior notice.
 
         .. versionadded:: 5.0
+
+        .. versionchanged:: 5.3
+            The bookmark manager no longer tracks bookmarks per database.
+            This effectively changes the signature of almost all bookmark
+            manager related methods:
+
+            * ``initial_bookmarks`` is no longer a mapping from database name
+              to bookmarks but plain bookmarks.
+            * ``bookmarks_supplier`` no longer receives the database name as
+              an argument.
+            * ``bookmarks_consumer`` no longer receives the database name as
+              an argument.
         """
         return AsyncNeo4jBookmarkManager(
             initial_bookmarks=initial_bookmarks,
@@ -301,7 +314,7 @@ class AsyncGraphDatabase:
         try:
             return AsyncBoltDriver.open(target, auth=auth, **config)
         except (BoltHandshakeError, BoltSecurityError) as error:
-            from neo4j.exceptions import ServiceUnavailable
+            from ..exceptions import ServiceUnavailable
             raise ServiceUnavailable(str(error)) from error
 
     @classmethod
@@ -309,7 +322,7 @@ class AsyncGraphDatabase:
         """ Create a driver for routing-capable Neo4j service access
         that uses socket I/O and thread-based concurrency.
         """
-        from neo4j._exceptions import (
+        from .._exceptions import (
             BoltHandshakeError,
             BoltSecurityError,
         )
@@ -317,7 +330,7 @@ class AsyncGraphDatabase:
         try:
             return AsyncNeo4jDriver.open(*targets, auth=auth, routing_context=routing_context, **config)
         except (BoltHandshakeError, BoltSecurityError) as error:
-            from neo4j.exceptions import ServiceUnavailable
+            from ..exceptions import ServiceUnavailable
             raise ServiceUnavailable(str(error)) from error
 
 
@@ -588,7 +601,8 @@ class AsyncDriver:
     async def supports_multi_db(self) -> bool:
         """ Check if the server or cluster supports multi-databases.
 
-        :return: Returns true if the server or cluster the driver connects to supports multi-databases, otherwise false.
+        :returns: Returns true if the server or cluster the driver connects to
+            supports multi-databases, otherwise false.
 
         .. note::
             Feature support query, based on Bolt Protocol Version and Neo4j
@@ -619,7 +633,7 @@ class AsyncBoltDriver(_Direct, AsyncDriver):
         :param auth:
         :param config: The values that can be specified are found in :class: `neo4j.PoolConfig` and :class: `neo4j.WorkspaceConfig`
 
-        :return:
+        :returns:
         :rtype: :class: `neo4j.BoltDriver`
         """
         from .io import AsyncBoltPool
@@ -640,7 +654,7 @@ class AsyncBoltDriver(_Direct, AsyncDriver):
             :param config: The values that can be specified are found in
                 :class: `neo4j.SessionConfig`
 
-            :return:
+            :returns:
             :rtype: :class: `neo4j.AsyncSession`
             """
             session_config = SessionConfig(self._default_workspace_config,
@@ -668,7 +682,7 @@ class AsyncNeo4jDriver(_Routing, AsyncDriver):
         return cls(pool, default_workspace_config)
 
     def __init__(self, pool, default_workspace_config):
-        _Routing.__init__(self, pool.get_default_database_initial_router_addresses())
+        _Routing.__init__(self, [pool.address])
         AsyncDriver.__init__(self, pool, default_workspace_config)
 
     if not t.TYPE_CHECKING:

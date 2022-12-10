@@ -1,0 +1,110 @@
+<form script="searchcontrolsevents.js" stylesheet="searchcontrolsevents.css" theme="light" version="1.1">
+  <init>
+    <set token="show_results">true</set>
+    <set token="beforeSearch">true</set>
+  </init>
+  <label>Example: creategraph (inputformat json)</label>
+  <fieldset submitButton="false"></fieldset>
+  <row>
+    <panel>
+      <html>
+        <div class="creategraphjson_intro">
+          <ol>
+            <li>Load the input events from the lookup.</li>
+            <li>Transform the events to the input required by creategraph.</li>
+            <li>Run "| creategraph" on the input events to create the graph in your Neo4j instance.</li>
+          </ol>
+          <p>Ensure the field json_obj is present and the json objects contain the required fields for nodes and rels. Please follow the example as guideline for field structure.</p>
+        </div>
+      </html>
+    </panel>
+    <panel depends="$alwaysHideThisPanel$">
+      <input type="text" token="searchString">
+        <label>$searchString$</label>
+      </input>
+    </panel>
+    <panel depends="$alwaysHideThisPanel$">
+      <input type="text" token="searchString2">
+        <label>$searchString2$</label>
+      </input>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$beforeSearch$">
+      <html>
+        <div class="ga_framework_inputdata">
+          <h1>1. Input Data</h1>
+          <div>
+            <p style="margin-bottom:0px;">Either run your own search or select one of the example options below, to get a typical set of base events to work into the required nodes and relationsship format.</p>
+            <p> Once the search has run, select a source, destination and weight field to visualise the results.</p>
+          </div>
+          <button type="button" id="moviesshortjson" class="btn btn-primary">Populate Search with a short movies graph</button>
+        </div>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <html>
+        <div>
+            <div class="main-area">
+                <div id="mysearchbar1"/>
+                <div id="mysearchcontrols1"/>
+            </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$searchString$">
+      <table>
+        <title>Search results</title>
+        <search base="base">
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$searchString$">
+      <html>
+        <h1>2. Transform fields to required json input</h1>
+        <button type="button" id="transform" class="btn btn-primary">Transform fields to json_obj</button>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$searchString$">
+      <html>
+        <div>
+            <div class="main-area">
+                <div id="mysearchbar2"/>
+                <div id="mysearchcontrols2"/>
+            </div>
+        </div>
+      </html>
+    </panel>
+  </row>
+    <row>
+    <panel depends="$searchString2$">
+      <table>
+        <title>Search results transformed</title>
+        <search base="base2">
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+  
+  <row>
+    <panel depends="$searchString2$">
+      <html>
+        <h1>3. Execute |creategraph to create the graph on the Neo4j instance using json_obj</h1>
+        <p>Append the following command to the SPL above ("Search results transformed"). You need to configured this app before and then provide the parameters for uri and account to the custom command:</p>
+        <pre>
+<code>| creategraph uri=&lt;my_uri_id&gt; account=&lt;my_account_id&gt; propsprefix="p_" noact=f mode="merge" inputformat="json" inputfield="jsonobj" </code>
+        </pre>
+      </html>
+    </panel>
+  </row>
+</form>

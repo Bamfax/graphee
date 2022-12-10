@@ -139,7 +139,9 @@ class Outbox:
         if data:
             try:
                 self.socket.sendall(data)
-            except (OSError, asyncio.CancelledError) as error:
+            except (
+                OSError, SocketDeadlineExceeded, asyncio.CancelledError
+            ) as error:
                 Util.callback(self.on_error, error)
                 return False
             self._clear()
@@ -275,6 +277,7 @@ def check_supported_server_product(agent):
     looking at the server agent string.
 
     :param agent: server agent string to check for validity
+
     :raises UnsupportedServerProduct: if the product is not supported
     """
     if not agent.startswith("Neo4j/"):

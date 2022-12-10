@@ -8,7 +8,7 @@
         "description": "GRAPH-E - A Neo4j connector for Splunk.",
         "id": {
             "name": "graphee",
-            "version": "0.0.3"
+            "version": "0.0.4"
         },
         "title": "GRAPH-E"
     },

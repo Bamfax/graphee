@@ -111,7 +111,7 @@ class AsyncBolt3(AsyncBolt):
         )
 
     def _on_server_state_change(self, old_state, new_state):
-        log.debug("[#%04X]  State: %s > %s", self.local_port,
+        log.debug("[#%04X]  _: <CONNECTION> state: %s > %s", self.local_port,
                   old_state.name, new_state.name)
 
     @property
@@ -333,7 +333,7 @@ class AsyncBolt3(AsyncBolt):
     async def _process_message(self, tag, fields):
         """ Process at most one message from the server, if available.
 
-        :return: 2-tuple of number of detail messages and number of summary
+        :returns: 2-tuple of number of detail messages and number of summary
                  messages fetched
         """
         details = []

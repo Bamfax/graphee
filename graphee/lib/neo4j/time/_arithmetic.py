@@ -45,7 +45,7 @@ def nano_add(x, y):
 
     :param x:
     :param y:
-    :return:
+    :returns:
     """
     return (int(1000000000 * x) + int(1000000000 * y)) / 1000000000
 
@@ -64,7 +64,7 @@ def nano_div(x, y):
 
     :param x:
     :param y:
-    :return:
+    :returns:
     """
     return float(1000000000 * x) / int(1000000000 * y)
 
@@ -79,7 +79,7 @@ def nano_divmod(x, y):
 
     :param x:
     :param y:
-    :return:
+    :returns:
     """
     number = type(x)
     nx = int(1000000000 * x)
@@ -88,12 +88,12 @@ def nano_divmod(x, y):
     return int(q), number(r / 1000000000)
 
 
-_T_dividend = TypeVar("_T_dividend", int, float)
+_TDividend = TypeVar("_TDividend", int, float)
 
 
 def symmetric_divmod(
-    dividend: _T_dividend, divisor: float
-) -> Tuple[int, _T_dividend]:
+    dividend: _TDividend, divisor: float
+) -> Tuple[int, _TDividend]:
     number = type(dividend)
     if dividend >= 0:
         quotient, remainder = divmod(dividend, divisor)
@@ -124,7 +124,7 @@ def round_half_to_even(n):
         5
 
     :param n:
-    :return:
+    :returns:
     """
     ten_n = 10 * n
     if ten_n == int(ten_n) and ten_n % 10 == 5:
