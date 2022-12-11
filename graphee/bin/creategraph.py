@@ -302,17 +302,18 @@ class creategraph(ReportingCommand):
             for record in records:
                 splunkSetFull.append(record)
 
-                if self.input_format == 'plain':
-                    obj = dict(record)
-                    objsToProcess.append(obj)
-                elif self.input_format == 'json':
-                    inputfld = record.get(self.input_field)
-                    if string_hascontent(inputfld) :
-                        obj = json.loads(inputfld)
+                if self.noact == False:
+                    if self.input_format == 'plain':
+                        obj = dict(record)
                         objsToProcess.append(obj)
+                    elif self.input_format == 'json':
+                        inputfld = record.get(self.input_field)
+                        if string_hascontent(inputfld) :
+                            obj = json.loads(inputfld)
+                            objsToProcess.append(obj)
 
-            if self.noact == False and len(objsToProcess) >= 1:
-                self.graphcreator(objsToProcess)
+                    if len(objsToProcess) >= 1:
+                        self.graphcreator(objsToProcess)
                 
             for splunkOrigRecord in splunkSetFull:
                 yield splunkOrigRecord
